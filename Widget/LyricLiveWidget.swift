@@ -19,7 +19,7 @@ struct LyricsLiveActivity: Widget {
                     Image(systemName: "music.note").foregroundStyle(.mint)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    Text("DÉMO").font(.caption2).foregroundStyle(.secondary)
+                    Text(context.attributes.source ?? "DÉMO").font(.caption2).foregroundStyle(.secondary)
                 }
                 DynamicIslandExpandedRegion(.center) {
                     Text(context.attributes.title).font(.caption.bold()).lineLimit(1)
@@ -27,7 +27,7 @@ struct LyricsLiveActivity: Widget {
                 DynamicIslandExpandedRegion(.bottom) {
                     VStack(alignment: .leading, spacing: 6) {
                         Text(context.state.line).font(.headline).lineLimit(3)
-                        Text(context.isStale ? "Mise à jour ancienne" : (context.state.isPlaying ? "Démo en cours" : "En pause"))
+                        Text(context.isStale ? "Ouvre LyricLive pour actualiser" : (context.state.status ?? (context.state.isPlaying ? "Démo en cours" : "En pause")))
                             .font(.caption2).foregroundStyle(.secondary)
                     }.frame(maxWidth: .infinity, alignment: .leading)
                 }
@@ -53,11 +53,11 @@ struct LyricActivityView: View {
         VStack(alignment: .leading, spacing: family == .small ? 5 : 10) {
             HStack(spacing: 6) {
                 Image(systemName: "music.note").foregroundStyle(.mint)
-                Text(family == .small ? "LyricLive · Démo" : context.attributes.title)
+                Text(context.attributes.title)
                     .font(.caption.bold()).lineLimit(1)
                 Spacer(minLength: 0)
                 if family != .small {
-                    Text("DÉMO").font(.caption2).foregroundStyle(.secondary)
+                    Text(context.attributes.source ?? "DÉMO").font(.caption2).foregroundStyle(.secondary)
                 }
             }
             Text(context.state.line)
@@ -68,7 +68,7 @@ struct LyricActivityView: View {
             if family != .small {
                 Text(context.state.nextLine).font(.caption).foregroundStyle(.gray).lineLimit(2)
             }
-            Text(context.isStale ? "Mise à jour ancienne · Ouvre l’app" : (context.state.isPlaying ? "Démo · Ligne \(context.state.lineNumber)" : "Pause · Ligne \(context.state.lineNumber)"))
+            Text(context.isStale ? "Suivi suspendu · Ouvre LyricLive" : (context.state.status ?? (context.state.isPlaying ? "Démo · Ligne \(context.state.lineNumber)" : "Pause · Ligne \(context.state.lineNumber)")))
                 .font(.caption2).foregroundStyle(.gray).lineLimit(1)
         }
         .padding(family == .small ? 12 : 16)
