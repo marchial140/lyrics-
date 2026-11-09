@@ -7,9 +7,11 @@ struct LyricAttributes: ActivityAttributes {
         var nextLine: String
         var lineNumber: Int
         var isPlaying: Bool
+        var status: String? = nil
     }
     var title: String
     var artist: String
+    var source: String? = nil
 }
 
 enum DemoSong {
