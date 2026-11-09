@@ -1,6 +1,4 @@
-import AuthenticationServices
 import Combine
-import CryptoKit
 import Foundation
 import Security
 import UIKit
@@ -67,7 +65,7 @@ private enum SpotifyError: LocalizedError {
     case configuration, callback, authorization, storage, expired, forbidden, network(Int), rateLimit(TimeInterval)
     var errorDescription: String? {
         switch self {
-        case .configuration: return "Saisis le Client ID de ton application Spotify (32 caractères hexadécimaux)."
+        case .configuration: return "La connexion Spotify n’est pas encore configurée pour cette version de LyricLive. Le développeur doit ajouter son Client ID Spotify."
         case .callback: return "Retour Spotify invalide. Vérifie le Redirect URI et réessaie."
         case .authorization: return "Connexion Spotify refusée ou impossible. Vérifie le Client ID et les utilisateurs autorisés."
         case .storage: return "Impossible d’accéder au trousseau sécurisé. Déverrouille l’iPhone et réessaie."
@@ -80,7 +78,7 @@ private enum SpotifyError: LocalizedError {
 }
 
 @MainActor
-final class SpotifyClient: NSObject, ObservableObject, ASWebAuthenticationPresentationContextProviding {
+final class SpotifyClient: NSObject, ObservableObject {
     static let callbackScheme = "com.lyriclive.spotify"
     static let redirectURI = "com.lyriclive.spotify://callback"
     @Published private(set) var connected = false
@@ -90,7 +88,7 @@ final class SpotifyClient: NSObject, ObservableObject, ASWebAuthenticationPresen
     @Published private(set) var status = "Connecte Spotify pour voir ce que tu écoutes."
     @Published private(set) var foreground = false
     private var tokens: SpotifyTokens?
-    private var session: ASWebAuthenticationSession?
+    private let appAuthentication = SpotifyAppAuthentication()
     private var polling: Task<Void, Never>?
     private var authentication: Task<Void, Never>?
     private var generation = UUID()
@@ -106,12 +104,6 @@ final class SpotifyClient: NSObject, ObservableObject, ASWebAuthenticationPresen
         } catch { status = "Session enregistrée inaccessible. Reconnecte Spotify." }
     }
 
-    func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
-        UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-            .filter { $0.activationState == .foregroundActive }
-            .flatMap(\.windows).first(where: \.isKeyWindow) ?? ASPresentationAnchor()
-    }
-
     func connect(clientID input: String) {
         guard !connecting else { return }
         let clientID = input.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -120,84 +112,38 @@ final class SpotifyClient: NSObject, ObservableObject, ASWebAuthenticationPresen
             return
         }
         connecting = true
+        status = "Valide le partage de ta lecture dans l’app Spotify, puis reviens dans LyricLive."
         polling?.cancel()
         polling = nil
         generation = UUID()
         let loginID = generation
         authentication = Task { [weak self] in
             guard let self else { return }
-            defer { if self.generation == loginID { self.connecting = false; self.authentication = nil; self.session = nil } }
+            defer { if self.generation == loginID { self.connecting = false; self.authentication = nil } }
             do {
-                let verifier = try Self.randomURLSafeString()
-                let state = try Self.randomURLSafeString()
-                let challenge = Self.base64URL(Data(SHA256.hash(data: Data(verifier.utf8))))
-                var components = URLComponents(string: "https://accounts.spotify.com/authorize")!
-                components.queryItems = [
-                    .init(name: "client_id", value: clientID),
-                    .init(name: "response_type", value: "code"),
-                    .init(name: "redirect_uri", value: Self.redirectURI),
-                    .init(name: "scope", value: "user-read-currently-playing"),
-                    .init(name: "code_challenge_method", value: "S256"),
-                    .init(name: "code_challenge", value: challenge),
-                    .init(name: "state", value: state)
-                ]
-                guard let url = components.url else { throw SpotifyError.configuration }
-                let callback = try await self.authenticate(url)
                 try self.check(loginID)
-                guard let parts = URLComponents(url: callback, resolvingAgainstBaseURL: false),
-                      parts.scheme == Self.callbackScheme, parts.host == "callback",
-                      parts.path.isEmpty, parts.user == nil, parts.port == nil,
-                      parts.queryItems?.filter({ $0.name == "state" }).count == 1,
-                      parts.queryItems?.first(where: { $0.name == "state" })?.value == state else {
-                    throw SpotifyError.callback
-                }
-                guard parts.queryItems?.contains(where: { $0.name == "error" }) != true,
-                      parts.queryItems?.filter({ $0.name == "code" }).count == 1,
-                      let code = parts.queryItems?.first(where: { $0.name == "code" })?.value else {
-                    throw SpotifyError.authorization
-                }
-                let response = try await self.tokenRequest([
-                    "grant_type": "authorization_code", "code": code,
-                    "redirect_uri": Self.redirectURI, "client_id": clientID, "code_verifier": verifier
-                ], refreshing: false)
+                let authorized = try await self.appAuthentication.authorize(clientID: clientID)
                 try self.check(loginID)
-                guard let refreshToken = response.refresh_token else { throw SpotifyError.authorization }
-                let saved = SpotifyTokens(accessToken: response.access_token, refreshToken: refreshToken,
-                    expiresAt: Date().addingTimeInterval(response.expires_in), clientID: clientID)
+                let saved = SpotifyTokens(accessToken: authorized.accessToken,
+                    refreshToken: authorized.refreshToken,
+                    expiresAt: authorized.expirationDate, clientID: clientID)
                 try TokenVault.save(saved)
                 self.tokens = saved
                 self.connected = true
                 self.status = "Spotify connecté. Lecture du morceau en cours…"
                 self.startPolling()
             } catch is CancellationError {
-                // Disconnection or scene changes must not restore an obsolete session.
+                // Disconnect invalidates callbacks and any in-flight authorization.
             } catch {
                 guard self.generation == loginID else { return }
-                if let authError = error as? ASWebAuthenticationSessionError, authError.code == .canceledLogin {
-                    self.status = "Connexion annulée."
-                } else { self.status = error.localizedDescription }
+                self.status = error.localizedDescription
                 if self.connected { self.startPolling() }
             }
         }
     }
 
-    private func authenticate(_ url: URL) async throws -> URL {
-        try await withCheckedThrowingContinuation { continuation in
-            let auth = ASWebAuthenticationSession(url: url, callbackURLScheme: Self.callbackScheme) { url, error in
-                Task { @MainActor in
-                    if let error { continuation.resume(throwing: error) }
-                    else if let url { continuation.resume(returning: url) }
-                    else { continuation.resume(throwing: SpotifyError.callback) }
-                }
-            }
-            auth.presentationContextProvider = self
-            self.session = auth
-            guard auth.start() else {
-                self.session = nil
-                continuation.resume(throwing: SpotifyError.authorization)
-                return
-            }
-        }
+    func handleURL(_ url: URL) {
+        appAuthentication.handleURL(url)
     }
 
     func disconnect() {
@@ -205,7 +151,7 @@ final class SpotifyClient: NSObject, ObservableObject, ASWebAuthenticationPresen
         pollID = UUID()
         polling?.cancel(); polling = nil
         authentication?.cancel(); authentication = nil
-        session?.cancel(); session = nil
+        appAuthentication.cancel()
         tokens = nil
         connected = false
         connecting = false
@@ -346,17 +292,5 @@ final class SpotifyClient: NSObject, ObservableObject, ASWebAuthenticationPresen
 
     private static func retryDelay(_ response: HTTPURLResponse) -> TimeInterval {
         max(3, Double(response.value(forHTTPHeaderField: "Retry-After") ?? "") ?? 30)
-    }
-    private static func randomURLSafeString() throws -> String {
-        var bytes = [UInt8](repeating: 0, count: 32)
-        let status = bytes.withUnsafeMutableBytes { buffer in
-            SecRandomCopyBytes(kSecRandomDefault, buffer.count, buffer.baseAddress!)
-        }
-        guard status == errSecSuccess else { throw SpotifyError.authorization }
-        return base64URL(Data(bytes))
-    }
-    private static func base64URL(_ data: Data) -> String {
-        data.base64EncodedString().replacingOccurrences(of: "+", with: "-")
-            .replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: "=", with: "")
     }
 }
