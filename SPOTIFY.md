@@ -1,8 +1,10 @@
-# Connecter Spotify à LyricLive
+# Connexion directe à l’app Spotify
+
+Parcours utilisateur : **Connecter Spotify → app Spotify → consentement si nécessaire → retour dans LyricLive**. Aucun navigateur n’est ouvert par ce parcours. Si Spotify n’est pas installé, l’app demande de l’installer. Spotify peut réutiliser un consentement déjà accordé sans le redemander.
 
 ## Première configuration (une fois)
 
-1. Ouvrir https://developer.spotify.com/dashboard et créer une application Spotify Web API.
+1. Le développeur ouvre https://developer.spotify.com/dashboard et crée une application avec **iOS SDK** et **Web API**, en renseignant le Bundle ID réel de LyricLive.
 2. Enregistrer exactement ce **Redirect URI** :
 
    ```text
@@ -11,17 +13,17 @@
 
    C’est un schéma personnalisé dédié à OAuth, déclaré dans `App/Info.plist`. Spotify prend en charge les schémas personnalisés pour les apps mobiles ; pour une distribution publique, préférer un schéma propre à votre identifiant ou un Universal Link HTTPS que vous contrôlez. En cas de changement, modifier **les deux constantes** dans `SpotifyClient.swift`, le schéma dans `App/Info.plist` et le Dashboard de façon cohérente.
 3. Renseigner le Bundle ID iOS réel de LyricLive si le Dashboard le demande.
-4. Copier le **Client ID**, jamais le Client Secret. Le Client ID n’est pas un secret ; le champ dans l’app est stocké localement dans UserDefaults.
+4. Copier le **Client ID**, jamais le Client Secret. Le Client ID n’est pas un secret. Le mettre dans `App/SpotifyConfiguration.swift`, propriété `clientID`, avant de distribuer l’app : les utilisateurs ne verront alors aucun écran de configuration. Le champ Configuration développeur reste un dépannage local, stocké dans UserDefaults et utilisé uniquement si la constante du projet est vide.
 5. En mode développement, ajouter le compte Spotify utilisé dans les utilisateurs autorisés. Les conditions actuelles imposent notamment Premium au propriétaire de l’application et limitent les utilisateurs de test ; vérifier les règles dans le Dashboard.
-6. Recompiler le projet mis à jour, l’installer sur l’iPhone et ouvrir **Connecter Spotify** → **Configurer Spotify**. Coller le Client ID et choisir **Enregistrer et connecter**.
-7. Autoriser l’accès à la lecture en cours dans la fenêtre d’authentification système. Démarrer une chanson dans l’app Spotify, puis revenir dans LyricLive.
+6. Ouvrir le projet, laisser Xcode résoudre le package **SpotifyLogin**, recompiler et installer sur un iPhone avec Spotify installé et connecté. Appuyer sur **Connecter Spotify**.
+7. Accepter le partage dans **l’app Spotify**, qui renvoie ensuite vers LyricLive. Si aucun morceau ne joue, en lancer un dans Spotify puis revenir dans LyricLive. L’authentification ne démarre aucune musique et ne change pas la lecture.
 
 Aucun Client Secret, mot de passe Spotify ou jeton ne doit être envoyé dans GitHub ou saisi dans le champ Client ID.
 
 ## Comportement
 
 - Scope unique : `user-read-currently-playing`. Ni historique complet, ni modification de playlists, ni commande de lecture.
-- OAuth Authorization Code + PKCE S256 avec verifier et state aléatoires, validation du retour et session `ASWebAuthenticationSession`.
+- Authentification app-to-app avec le SDK officiel **SpotifyLogin 3.1.2** (`spotify/ios-auth`), flow `.clientOnlyFailsIfNotInstalled`. Le SDK gère PKCE et l’échange du code ; LyricLive vérifie la destination callback, n’accepte qu’un callback par tentative et ignore les réponses d’une session annulée. `LSApplicationQueriesSchemes` autorise le schéma `spotify`. Le retour SwiftUI utilise `onOpenURL`. Aucun repli vers le navigateur n’est configuré.
 - Jetons dans le Keychain (`WhenUnlockedThisDeviceOnly`), renouvellement avant expiration, conservation du refresh token si Spotify ne le renouvelle pas.
 - Au premier plan : requête vers `GET /v1/me/player/currently-playing` environ toutes les 3 secondes **après chaque réponse**, donc latence de réseau en plus. Ce n’est pas un flux événementiel instantané. Affichage de la progression **échantillonnée**, sans prétendre à une synchronisation musicale exacte.
 - Quand iOS met l’app en arrière-plan/inactive, annulation du suivi. Reprise au retour au premier plan, sans double boucle.
@@ -33,7 +35,10 @@ La démo Live Activity/CarPlay existante garde ses textes originaux. Les métado
 
 ## Validation à faire sur iPhone
 
-- Connexion valide, refus de permission et annulation de la fenêtre système.
+- Spotify installé : un toucher sur Connecter ouvre **Spotify**, montre le consentement si nécessaire et revient dans LyricLive. Tester acceptation, refus, retour manuel sans consentement puis Annuler, et retour en double.
+- Spotify non installé : message explicite, aucun navigateur.
+- Consentement déjà accordé : Spotify peut revenir sans nouvel écran.
+- Interrompre/tuer LyricLive pendant la connexion : une nouvelle tentative peut être nécessaire ; aucun consentement ne doit être inventé.
 - Client ID vide/incorrect, Redirect URI mal enregistré et compte non ajouté aux testeurs.
 - Démarrer un morceau, changer de morceau, mettre en pause, reprendre et déplacer la lecture : l’état affiché doit rejoindre Spotify au prochain cycle.
 - Revenir au premier plan plusieurs fois : pas de boucles de requêtes doublées ; dernière heure de vérification actualisée.
@@ -46,6 +51,7 @@ Aucun compte Spotify de test ni Client ID n’a été fourni dans l’environnem
 
 ## Sources officielles
 
+- https://github.com/spotify/ios-auth/blob/v3.1.2/README.md
 - https://developer.spotify.com/documentation/web-api/tutorials/code-pkce-flow
 - https://developer.spotify.com/blog/2025-02-12-increasing-the-security-requirements-for-integrating-with-spotify
 - https://developer.spotify.com/documentation/web-api/reference/get-the-users-currently-playing-track
