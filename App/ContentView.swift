@@ -3,7 +3,7 @@ import UIKit
 
 struct ContentView: View {
     @StateObject private var controller = LiveActivityController()
-    @StateObject private var spotify = SpotifyClient()
+    @ObservedObject var spotify: SpotifyClient
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
@@ -79,7 +79,6 @@ struct ContentView: View {
                     spotify.setForeground(scenePhase == .active)
                     await controller.setForeground(scenePhase == .active)
                 }
-                .onOpenURL { url in spotify.handleURL(url) }
                 .onChange(of: scenePhase) { _, phase in
                     spotify.setForeground(phase == .active)
                     Task { await controller.setForeground(phase == .active) }
@@ -87,3 +86,4 @@ struct ContentView: View {
         }
     }
 }
+
