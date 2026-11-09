@@ -1,0 +1,9 @@
+Vérification structurelle : RÉUSSIE
+- Syntaxe OpenStep du project.pbxproj analysée.
+- Références d’objets et chemins des sources résolus.
+- Deux cibles, dépendance et copie de l’extension vérifiées.
+- Attributs ActivityKit partagés entre les deux cibles.
+- NSSupportsLiveActivities, plist WidgetKit et schéma partagé vérifiés.
+
+Compilation Swift / Xcode : NON EFFECTUÉE (outils absents dans Linux).
+Exécution simulateur, signature iPhone et affichage CarPlay : NON EFFECTUÉS.
