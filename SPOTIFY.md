@@ -13,12 +13,12 @@ Parcours utilisateur : **Connecter Spotify → app Spotify → consentement si n
 
    C’est un schéma personnalisé dédié à OAuth, déclaré dans `App/Info.plist`. Spotify prend en charge les schémas personnalisés pour les apps mobiles ; pour une distribution publique, préférer un schéma propre à votre identifiant ou un Universal Link HTTPS que vous contrôlez. En cas de changement, modifier **les deux constantes** dans `SpotifyClient.swift`, le schéma dans `App/Info.plist` et le Dashboard de façon cohérente.
 3. Renseigner le Bundle ID iOS réel de LyricLive si le Dashboard le demande.
-4. Copier le **Client ID**, jamais le Client Secret. Le Client ID n’est pas un secret. Le mettre dans `App/SpotifyConfiguration.swift`, propriété `clientID`, avant de distribuer l’app : les utilisateurs ne verront alors aucun écran de configuration. Le champ Configuration développeur reste un dépannage local, stocké dans UserDefaults et utilisé uniquement si la constante du projet est vide.
+4. Copier le **Client ID**, jamais le Client Secret. Le Client ID n’est pas un secret. Le mettre dans `App/SpotifyConfiguration.swift`, propriété `clientID`, avant de distribuer l’app : les utilisateurs ne verront alors aucun écran de configuration. Le Client ID fourni pour LyricLive est maintenant intégré ; le bouton Configuration développeur et le champ de saisie ont été retirés.
 5. En mode développement, ajouter le compte Spotify utilisé dans les utilisateurs autorisés. Les conditions actuelles imposent notamment Premium au propriétaire de l’application et limitent les utilisateurs de test ; vérifier les règles dans le Dashboard.
 6. Ouvrir le projet, laisser Xcode résoudre le package **SpotifyLogin**, recompiler et installer sur un iPhone avec Spotify installé et connecté. Appuyer sur **Connecter Spotify**.
 7. Accepter le partage dans **l’app Spotify**, qui renvoie ensuite vers LyricLive. Si aucun morceau ne joue, en lancer un dans Spotify puis revenir dans LyricLive. L’authentification ne démarre aucune musique et ne change pas la lecture.
 
-Aucun Client Secret, mot de passe Spotify ou jeton ne doit être envoyé dans GitHub ou saisi dans le champ Client ID.
+Aucun Client Secret, mot de passe Spotify ou jeton ne doit être envoyé dans GitHub.
 
 ## Comportement
 
@@ -47,7 +47,7 @@ La démo Live Activity/CarPlay existante garde ses textes originaux. Les métado
 - Aucun morceau actif (204), contenu non musical, perte de réseau, 401, 403 et 429 (à simuler par un proxy de test si nécessaire). Respecter `Retry-After` même après retour au premier plan.
 - La démo Live Activity doit toujours démarrer, changer de ligne et se terminer normalement.
 
-Aucun compte Spotify de test ni Client ID n’a été fourni dans l’environnement de développement. L’authentification réelle et la compilation iOS n’y sont donc pas validées. L’utilisateur a confirmé le fonctionnement de la version précédente de la Live Activity ; cette confirmation ne valide pas cette nouvelle intégration.
+Le Client ID public a été fourni et intégré. Aucun accès à un compte Spotify de test n’est disponible dans l’environnement de développement. L’authentification réelle et la compilation iOS n’y sont donc pas validées. L’utilisateur a confirmé le fonctionnement de la version précédente de la Live Activity ; cette confirmation ne valide pas cette nouvelle intégration.
 
 ## Sources officielles
 
