@@ -57,3 +57,27 @@ Le Client ID public a été fourni et intégré. Aucun accès à un compte Spoti
 - https://developer.spotify.com/documentation/web-api/reference/get-the-users-currently-playing-track
 - https://developer.spotify.com/documentation/web-api/concepts/quota-modes
 - https://developer.spotify.com/documentation/web-api/concepts/rate-limits
+
+## Correction de l’attente au retour de Spotify
+
+La session Spotify appartient maintenant à l’app SwiftUI ; le callback est reçu à sa racine. Les retours avec barre oblique finale sont normalisés ; un code/une erreur OAuth dans le fragment peut être normalisé vers la query attendue par le SDK. Les jetons d’un ancien flow implicite ne sont pas acceptés. Un retour invalide produit une erreur au lieu d’être ignoré indéfiniment.
+
+Trois délais bornent la tentative : 120 secondes pour le consentement, 5 secondes après retour au premier plan sans callback (pour laisser passer l’événement onOpenURL), 20 secondes pour l’échange du code après réception du callback. L’état affiche « Retour Spotify reçu. Finalisation de la connexion… » pendant l’échange. Toute fin annule les échéances, détache le SDK et reprend la continuation une seule fois. Les réponses tardives d’anciens managers sont ignorées.
+
+Ces changements corrigent des chemins d’attente identifiés dans le code ; ils ne prouvent pas la cause exacte du blocage observé sur l’iPhone. Le client secret, les codes et les URL de callback complètes ne sont pas journalisés.
+
+À vérifier sur iPhone après mise à jour :
+
+| Cas | Résultat attendu |
+|---|---|
+| Accepter et revenir automatiquement | Finalisation puis état connecté |
+| Revenir manuellement sans accepter | Message d’absence de retour après 5 secondes ; bouton réutilisable |
+| Refuser | Erreur explicite ; fin du chargement |
+| Code reçu, échange sans réponse réseau | Message d’expiration après 20 secondes ; possibilité de réessayer |
+| Refuser puis réessayer | Nouvelle tentative indépendante |
+| Callback reçu avant/après le changement de scenePhase | Même traitement, pas d’échec immédiat à la réactivation |
+| Même callback livré deux fois | Une seule consommation |
+| Callback reçu après Annuler ou expiration | Pas de reconnexion de l’ancienne session |
+| Retour avec chemin invalide ou jeton implicite | Erreur, aucun jeton accepté |
+
+La compilation Xcode et ces essais matériels restent à effectuer sur Mac/iPhone.
