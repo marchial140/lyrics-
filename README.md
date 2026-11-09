@@ -1,5 +1,7 @@
 # LyricLive — Live Activity pour iPhone et CarPlay
 
+Connexion Spotify : consulte [SPOTIFY.md](SPOTIFY.md) pour créer ton Client ID, puis utilise le bouton **Connecter Spotify** dans l’app. Titre, artiste, pochette, état de lecture et progression sont actualisés environ toutes les trois secondes au premier plan.
+
 Projet natif Swift / SwiftUI avec **deux cibles** : l’app iPhone et une extension WidgetKit contenant la Live Activity. Le dossier `LyricLive.xcodeproj` est le projet à ouvrir ; garder les dossiers App, Shared et Widget à côté. Le ZIP contient tout le nécessaire.
 
 ## Prérequis et lancement
@@ -13,7 +15,7 @@ Projet natif Swift / SwiftUI avec **deux cibles** : l’app iPhone et une extens
 7. Appuyer sur **Démarrer la Live Activity**. Vérifier l’écran verrouillé et, si disponible, la Dynamic Island. Utiliser **Suivante** pour publier une nouvelle ligne, ou **Lire la démo de 30 secondes** pour le défilement automatique au premier plan.
 8. **Arrêter et retirer l’activité** termine toutes les instances appartenant à ce prototype.
 
-L’app déclare `NSSupportsLiveActivities`. Elle ne demande pas les permissions de notifications ordinaires, ne configure aucun son ni APNs et n’a besoin d’aucune clé externe.
+L’app déclare `NSSupportsLiveActivities`. Elle ne demande pas les permissions de notifications ordinaires et ne configure aucun son ni APNs. La démo fonctionne sans clé ; la connexion Spotify nécessite ton Client ID public.
 
 ## Essayer CarPlay
 
@@ -34,7 +36,7 @@ L’extension fournit une présentation `.small` avec `supplementalActivityFamil
 - Arrêt immédiat demandé à ActivityKit ; le rendu effectif reste géré par iOS.
 - Interface française, sombre et avec polices système adaptatives.
 
-**Il n’y a pas de connexion Spotify dans cette version.** La synchronisation d’une chanson Spotify, les droits sur les paroles et une mise à jour continue en arrière-plan restent des travaux distincts. L’API ActivityKit n’accorde pas de temps d’exécution continu à l’app. Nous n’utilisons ni audio silencieux ni faux mode d’arrière-plan.
+**La connexion Spotify est disponible dans la section en haut de l’app.** Elle lit les métadonnées de la lecture en cours au premier plan, avec une latence liée au réseau et à Spotify. La Live Activity reste une démonstration indépendante de textes originaux. La synchronisation des paroles et une mise à jour continue en arrière-plan restent des travaux distincts. L’API ActivityKit n’accorde pas de temps d’exécution continu à l’app. Nous n’utilisons ni audio silencieux ni faux mode d’arrière-plan.
 
 L’app n’imite pas la présentation ni le code de Dynamic Lyrics : elle teste le même mécanisme public d’affichage, ActivityKit.
 
