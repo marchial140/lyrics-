@@ -31,7 +31,7 @@ Aucun Client Secret, mot de passe Spotify ou jeton ne doit être envoyé dans Gi
 - 401 : renouvellement puis une nouvelle tentative. Session expirée/révoquée : déconnexion et demande de reconnexion. 403 : message et arrêt des tentatives jusqu’au prochain retour au premier plan. 429 : attente au moins égale au `Retry-After`. Panne réseau : ancien morceau effacé et reprise espacée.
 - Déconnecter annule les tâches, efface les données affichées et les jetons du trousseau. Les réponses tardives ne peuvent pas reconnecter une session déconnectée. La déconnexion est locale ; pour retirer aussi l’autorisation côté Spotify, utiliser https://www.spotify.com/account/apps/.
 
-La démo Live Activity/CarPlay existante garde ses textes originaux. Les métadonnées Spotify ne sont pas associées à ces textes et ne sont pas utilisées comme paroles. Cette version n’affiche pas encore le morceau Spotify dans la Live Activity.
+La section paroles recherche maintenant les textes via l’API publique LRCLIB. Quand des timestamps sont disponibles, les lignes sont suivies dans l’app et peuvent être publiées dans une Live Activity. Voir README.md pour les limites d’arrière-plan, de disponibilité et les droits à valider avant distribution.
 
 ## Validation à faire sur iPhone
 
@@ -45,7 +45,7 @@ La démo Live Activity/CarPlay existante garde ses textes originaux. Les métado
 - Déconnecter pendant une requête ou pendant OAuth : pas de retour du morceau ni des jetons dans l’app.
 - Relancer l’app après une connexion : reprise depuis le Keychain ; expiration des jetons : renouvellement sans mot de passe.
 - Aucun morceau actif (204), contenu non musical, perte de réseau, 401, 403 et 429 (à simuler par un proxy de test si nécessaire). Respecter `Retry-After` même après retour au premier plan.
-- La démo Live Activity doit toujours démarrer, changer de ligne et se terminer normalement.
+- La Live Activity doit afficher le titre et les lignes du morceau choisi, puis se terminer normalement. Voir TESTS.md pour les cas de paroles manquantes, pause, recherche et changement de morceau.
 
 Le Client ID public a été fourni et intégré. Aucun accès à un compte Spotify de test n’est disponible dans l’environnement de développement. L’authentification réelle et la compilation iOS n’y sont donc pas validées. L’utilisateur a confirmé le fonctionnement de la version précédente de la Live Activity ; cette confirmation ne valide pas cette nouvelle intégration.
 
