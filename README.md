@@ -1,6 +1,6 @@
 # LyricLive — Live Activity pour iPhone et CarPlay
 
-Connexion Spotify : le bouton **Connecter Spotify** ouvre directement l’app Spotify installée pour obtenir le consentement, puis revient dans LyricLive. Le développeur doit configurer une seule fois son Client ID dans `App/SpotifyConfiguration.swift` ; consulte [SPOTIFY.md](SPOTIFY.md). Titre, artiste, pochette, état de lecture et progression sont actualisés environ toutes les trois secondes au premier plan.
+Connexion Spotify : le bouton **Connecter Spotify** ouvre directement l’app Spotify installée pour obtenir le consentement, puis revient dans LyricLive. Le Client ID est intégré au projet ; aucune saisie n’est nécessaire dans l’app. Consulte [SPOTIFY.md](SPOTIFY.md) pour les réglages du Dashboard Spotify. Titre, artiste, pochette, état de lecture et progression sont actualisés environ toutes les trois secondes au premier plan.
 
 Projet natif Swift / SwiftUI avec **deux cibles** : l’app iPhone et une extension WidgetKit contenant la Live Activity. Le dossier `LyricLive.xcodeproj` est le projet à ouvrir ; garder les dossiers App, Shared et Widget à côté. Le ZIP contient tout le nécessaire.
 
@@ -15,7 +15,7 @@ Projet natif Swift / SwiftUI avec **deux cibles** : l’app iPhone et une extens
 7. Appuyer sur **Démarrer la Live Activity**. Vérifier l’écran verrouillé et, si disponible, la Dynamic Island. Utiliser **Suivante** pour publier une nouvelle ligne, ou **Lire la démo de 30 secondes** pour le défilement automatique au premier plan.
 8. **Arrêter et retirer l’activité** termine toutes les instances appartenant à ce prototype.
 
-L’app déclare `NSSupportsLiveActivities`. Elle ne demande pas les permissions de notifications ordinaires et ne configure aucun son ni APNs. La démo fonctionne sans clé ; la connexion Spotify nécessite ton Client ID public.
+L’app déclare `NSSupportsLiveActivities`. Elle ne demande pas les permissions de notifications ordinaires et ne configure aucun son ni APNs. La démo fonctionne sans clé ; le Client ID public de la connexion Spotify est déjà intégré.
 
 ## Essayer CarPlay
 
