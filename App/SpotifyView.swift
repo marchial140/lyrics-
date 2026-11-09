@@ -18,9 +18,7 @@ struct SpotifyView: View {
             }
             if !client.connected {
                 Button {
-                    if clientID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        showConfiguration = true
-                    } else { client.connect(clientID: clientID) }
+                    client.connect(clientID: effectiveClientID)
                 } label: {
                     HStack {
                         if client.connecting { ProgressView().tint(.black) }
@@ -29,7 +27,7 @@ struct SpotifyView: View {
                 }
                 .buttonStyle(.borderedProminent).tint(.green).foregroundStyle(.black)
                 .disabled(client.connecting)
-                Text("Autorise seulement la lecture du morceau en cours. Aucun contrôle de ta musique n’est demandé.")
+                Text("Ouvre l’app Spotify pour autoriser le partage du morceau en cours, puis revient ici automatiquement.")
                     .font(.footnote).foregroundStyle(.secondary)
             }
             if let playback = client.playback, let item = playback.item, item.type == "track" {
@@ -73,7 +71,7 @@ struct SpotifyView: View {
                     .font(.caption2).foregroundStyle(.secondary)
             }
             HStack {
-                Button("Configurer Spotify") { showConfiguration = true }
+                Button("Configuration développeur") { showConfiguration = true }
                     .disabled(client.connecting)
                 Spacer()
                 if client.connected || client.connecting {
@@ -87,15 +85,23 @@ struct SpotifyView: View {
         .sheet(isPresented: $showConfiguration, onDismiss: {
             if connectAfterDismiss {
                 connectAfterDismiss = false
-                client.connect(clientID: clientID)
+                client.connect(clientID: effectiveClientID)
             }
         }) { configuration }
+    }
+
+    private var effectiveClientID: String {
+        let configured = SpotifyConfiguration.clientID.trimmingCharacters(in: .whitespacesAndNewlines)
+        return configured.isEmpty ? clientID : configured
     }
 
     private var configuration: some View {
         NavigationStack {
             Form {
-                Section("Ton application Spotify") {
+                Section("Application Spotify du développeur") {
+                    if !SpotifyConfiguration.clientID.isEmpty {
+                        Text("Le Client ID est intégré à cette version. Le bouton Connecter Spotify l’utilise directement.")
+                    }
                     TextField("Client ID Spotify", text: $clientID)
                         .textInputAutocapitalization(.never).autocorrectionDisabled()
                         .keyboardType(.asciiCapable)
@@ -113,7 +119,7 @@ struct SpotifyView: View {
                     Link("Ouvrir Spotify for Developers", destination: URL(string: "https://developer.spotify.com/dashboard")!)
                 }
                 Section {
-                    Button("Enregistrer et connecter") {
+                    Button("Enregistrer et ouvrir Spotify") {
                         connectAfterDismiss = true
                         showConfiguration = false
                     }.disabled(client.connected || client.connecting)
