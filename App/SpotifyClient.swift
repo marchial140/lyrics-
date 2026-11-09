@@ -7,10 +7,12 @@ struct SpotifyPlayback: Decodable {
     struct Item: Decodable {
         struct Artist: Decodable { let name: String }
         struct Image: Decodable { let url: URL }
-        struct Album: Decodable { let images: [Image] }
+        struct Album: Decodable { let images: [Image]; let name: String? }
         struct Links: Decodable { let spotify: URL? }
         let name: String
         let type: String
+        let id: String?
+        let uri: String?
         let duration_ms: Int?
         let artists: [Artist]?
         let album: Album?
