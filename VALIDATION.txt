@@ -11,3 +11,7 @@ Exécution simulateur, signature iPhone et affichage CarPlay : NON EFFECTUÉS.
 Ajout Spotify : OAuth PKCE, Keychain et suivi au premier plan implémentés.
 Configuration du schéma callback et structure du projet contrôlées.
 Compilation iOS et authentification réelle Spotify : NON EFFECTUÉES ici.
+
+Connexion app-to-app : SDK officiel SpotifyLogin 3.1.2 ajouté et épinglé.
+Schéma Spotify, onOpenURL, déclarations Swift Package et fichiers vérifiés.
+Ouverture réelle de Spotify et consentement sur iPhone : NON TESTÉS ici.
