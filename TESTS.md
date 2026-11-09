@@ -1,25 +1,34 @@
-# Vérification sur Mac, iPhone puis CarPlay
+# Tests des paroles et de la Live Activity
 
-Tous les résultats matériels sont **à renseigner**. Essais dans une auto stationnée.
+## XCTest — à exécuter sur Mac
 
-| Test | Action | Résultat attendu / à vérifier |
-|---|---|---|
-| Projet | Ouvrir, lister et compiler avec Xcode 26+ | Deux cibles, extension embarquée, schéma LyricLive |
-| Signature | Même équipe, identifiants app/extension cohérents | Installation sur iPhone |
-| Démarrage | Toucher Démarrer deux fois | Une seule activité active, pas d’accumulation |
-| Écran verrouillé | Démarrer puis verrouiller | Texte de démo visible si les réglages le permettent, statut Pause |
-| Dynamic Island | iPhone compatible | Vue compacte puis présentation développée |
-| Navigation | Suivante puis Précédente | Ligne publiée dans la Live Activity ; cadence observée à noter |
-| Défilement | Lire la démo au premier plan | Cinq lignes sur 30 s, fin en pause |
-| Pause | Mettre en pause puis reprendre | Le compteur reprend à son point d’arrêt |
-| Arrière-plan | Quitter l’app pendant la démo | Lecture locale suspendue, aucune promesse de défilement continu |
-| Réouverture | Revenir après verrouillage / relancement | Activité existante retrouvée, pas de doublon, commandes disponibles |
-| Suppression système | Retirer la Live Activity hors de l’app puis revenir | État retrouvé sans activité ; redémarrage possible |
-| Désactivation | Désactiver les activités en direct dans Réglages | Message explicite au démarrage |
-| Contenu ancien | Attendre plus de 60 s sans publier | Indication de mise à jour ancienne dans les vues qui l’affichent |
-| Arrêt | Toucher Arrêter | Retrait demandé, toutes les activités du prototype terminées |
-| CarPlay | Connecter et afficher le tableau de bord | Petite présentation si iOS la propose ; noter présence ou absence |
-| Concentration | Refaire l’essai CarPlay avec/sans Concentration | Noter la présentation réelle et les alertes éventuelles |
-| Accessibilité | Agrandir le texte, utiliser VoiceOver sur iPhone | Commandes compréhensibles, lisibilité et absence de chevauchements |
+Le schéma LyricLive contient la cible **LyricLiveTests**. Avec un simulateur iOS 26+, lancer **Product → Test**. Les tests du parseur portent sur : tags multiples, fractions de seconde, métadonnées, tri, limites exactes de lignes, recherche en arrière, silences, doublons, offset, secondes invalides et absence de timestamps.
 
-Pour chaque essai, consigner : iPhone, iOS/build, Xcode, véhicule et firmware, connexion filaire/sans fil, réglages des activités en direct, résultat, délai observé et capture éventuelle. Un update accepté par ActivityKit ne prouve pas une présentation immédiate dans l’auto.
+Ces tests n’ont pas été exécutés dans l’environnement Linux dépourvu de Xcode et de Swift.
+
+## Essais fonctionnels — à renseigner sur iPhone
+
+| Scénario | Résultat attendu |
+|---|---|
+| Connexion Spotify | Ouverture de Spotify, consentement si nécessaire et retour dans LyricLive |
+| Morceau avec paroles synchronisées | Texte LRCLIB, ligne surlignée et défilement au premier plan |
+| Morceau avec paroles simples uniquement | Texte affiché, message sans synchronisation, aucun faux surlignage |
+| Instrumental | Message instrumental, aucune ancienne parole |
+| Version absente du catalogue | Message d’absence et possibilité de rechercher à nouveau |
+| Changement de chanson pendant la recherche | Résultat de l’ancienne requête ignoré |
+| Pause et reprise dans Spotify | Position corrigée au prochain échantillon ; pas de défilement en pause |
+| Déplacement en arrière/avant | Nouvelle ligne sélectionnée au prochain échantillon, sans rester bloqué sur la ligne précédente |
+| Lecture avant le premier timestamp | Interlude musical, première ligne présentée comme suivante |
+| Live Activity | Bouton explicite, titre réel, ligne actuelle et suivante |
+| Nouveau titre avec Live Activity active | Ancienne activité terminée, nouveau titre et nouvelles paroles ; pas de mélange entre chansons |
+| Changement vers un titre sans paroles | Message d’indisponibilité à la place des anciennes paroles |
+| Arrière-plan/verrouillage | Suivi suspendu, indication dans l’activité ; aucun suivi continu promis |
+| Retour au premier plan | Nouvel échantillon Spotify avant de reprendre l’estimation |
+| Déconnexion / aucune lecture Spotify | Paroles effacées et activité suivie terminée |
+| Arrêter la Live Activity | Retrait demandé à iOS et aucune recréation automatique tant que désactivée |
+| Réponse 429/503 LRCLIB | Respect de Retry-After, même avec le bouton Rechercher à nouveau |
+| Réseau coupé | Message explicite sans paroles du morceau précédent |
+| CarPlay à l’arrêt | Petite présentation, lisibilité, comportement observé selon iOS et le véhicule |
+| Grandes tailles de texte / VoiceOver | Commandes compréhensibles et textes accessibles |
+
+Consigner pour chaque essai : iPhone, version/build iOS, Xcode, titre et version du morceau, résultat, délais observés, mode premier plan/arrière-plan et réglages des activités en direct. Pour CarPlay : modèle et firmware du véhicule et connexion filaire/sans fil. Une mise à jour ActivityKit acceptée ne prouve pas une présentation immédiate dans le véhicule.
