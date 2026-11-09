@@ -122,7 +122,10 @@ final class SpotifyClient: NSObject, ObservableObject {
             defer { if self.generation == loginID { self.connecting = false; self.authentication = nil } }
             do {
                 try self.check(loginID)
-                let authorized = try await self.appAuthentication.authorize(clientID: clientID)
+                let authorized = try await self.appAuthentication.authorize(clientID: clientID) { [weak self] message in
+                    guard let self, self.generation == loginID else { return }
+                    self.status = message
+                }
                 try self.check(loginID)
                 let saved = SpotifyTokens(accessToken: authorized.accessToken,
                     refreshToken: authorized.refreshToken,
@@ -163,6 +166,7 @@ final class SpotifyClient: NSObject, ObservableObject {
 
     func setForeground(_ active: Bool) {
         foreground = active
+        appAuthentication.setForeground(active)
         if active { startPolling() }
         else {
             pollID = UUID()
@@ -294,3 +298,4 @@ final class SpotifyClient: NSObject, ObservableObject {
         max(3, Double(response.value(forHTTPHeaderField: "Retry-After") ?? "") ?? 30)
     }
 }
+
