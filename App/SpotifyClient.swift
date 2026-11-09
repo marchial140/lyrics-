@@ -1,0 +1,362 @@
+import AuthenticationServices
+import Combine
+import CryptoKit
+import Foundation
+import Security
+import UIKit
+
+struct SpotifyPlayback: Decodable {
+    struct Item: Decodable {
+        struct Artist: Decodable { let name: String }
+        struct Image: Decodable { let url: URL }
+        struct Album: Decodable { let images: [Image] }
+        struct Links: Decodable { let spotify: URL? }
+        let name: String
+        let type: String
+        let duration_ms: Int?
+        let artists: [Artist]?
+        let album: Album?
+        let external_urls: Links?
+    }
+    let is_playing: Bool
+    let progress_ms: Int?
+    let item: Item?
+    let currently_playing_type: String?
+}
+
+private struct SpotifyTokens: Codable {
+    let accessToken: String
+    let refreshToken: String
+    let expiresAt: Date
+    let clientID: String
+}
+
+private enum TokenVault {
+    private static var query: [String: Any] {
+        [kSecClass as String: kSecClassGenericPassword,
+         kSecAttrService as String: (Bundle.main.bundleIdentifier ?? "LyricLive") + ".spotify",
+         kSecAttrAccount as String: "oauth"]
+    }
+    static func load() throws -> SpotifyTokens? {
+        var request = query
+        request[kSecReturnData as String] = true
+        request[kSecMatchLimit as String] = kSecMatchLimitOne
+        var result: CFTypeRef?
+        let status = SecItemCopyMatching(request as CFDictionary, &result)
+        if status == errSecItemNotFound { return nil }
+        guard status == errSecSuccess, let data = result as? Data else { throw SpotifyError.storage }
+        return try JSONDecoder().decode(SpotifyTokens.self, from: data)
+    }
+    static func save(_ tokens: SpotifyTokens) throws {
+        let data = try JSONEncoder().encode(tokens)
+        let status = SecItemUpdate(query as CFDictionary, [kSecValueData as String: data] as CFDictionary)
+        if status == errSecItemNotFound {
+            var request = query
+            request[kSecValueData as String] = data
+            request[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+            guard SecItemAdd(request as CFDictionary, nil) == errSecSuccess else { throw SpotifyError.storage }
+        } else if status != errSecSuccess { throw SpotifyError.storage }
+    }
+    static func delete() throws {
+        let status = SecItemDelete(query as CFDictionary)
+        guard status == errSecSuccess || status == errSecItemNotFound else { throw SpotifyError.storage }
+    }
+}
+
+private enum SpotifyError: LocalizedError {
+    case configuration, callback, authorization, storage, expired, forbidden, network(Int), rateLimit(TimeInterval)
+    var errorDescription: String? {
+        switch self {
+        case .configuration: return "Saisis le Client ID de ton application Spotify (32 caractères hexadécimaux)."
+        case .callback: return "Retour Spotify invalide. Vérifie le Redirect URI et réessaie."
+        case .authorization: return "Connexion Spotify refusée ou impossible. Vérifie le Client ID et les utilisateurs autorisés."
+        case .storage: return "Impossible d’accéder au trousseau sécurisé. Déverrouille l’iPhone et réessaie."
+        case .expired: return "Session Spotify expirée ou révoquée. Reconnecte-toi."
+        case .forbidden: return "Accès Spotify refusé (403). Vérifie le compte de test, les autorisations et le mode développement."
+        case .network(let code): return "Spotify est indisponible (HTTP \(code)). Nouvelle tentative automatique."
+        case .rateLimit: return "Limite Spotify atteinte. Les requêtes reprendront après le délai demandé par Spotify."
+        }
+    }
+}
+
+@MainActor
+final class SpotifyClient: NSObject, ObservableObject, ASWebAuthenticationPresentationContextProviding {
+    static let callbackScheme = "com.lyriclive.spotify"
+    static let redirectURI = "com.lyriclive.spotify://callback"
+    @Published private(set) var connected = false
+    @Published private(set) var connecting = false
+    @Published private(set) var playback: SpotifyPlayback?
+    @Published private(set) var lastUpdated: Date?
+    @Published private(set) var status = "Connecte Spotify pour voir ce que tu écoutes."
+    @Published private(set) var foreground = false
+    private var tokens: SpotifyTokens?
+    private var session: ASWebAuthenticationSession?
+    private var polling: Task<Void, Never>?
+    private var authentication: Task<Void, Never>?
+    private var generation = UUID()
+    private var pollID = UUID()
+    private var nextAllowedRequest = Date.distantPast
+
+    override init() {
+        super.init()
+        do {
+            tokens = try TokenVault.load()
+            connected = tokens != nil
+            if connected { status = "Session Spotify retrouvée." }
+        } catch { status = "Session enregistrée inaccessible. Reconnecte Spotify." }
+    }
+
+    func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
+        UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+            .filter { $0.activationState == .foregroundActive }
+            .flatMap(\.windows).first(where: \.isKeyWindow) ?? ASPresentationAnchor()
+    }
+
+    func connect(clientID input: String) {
+        guard !connecting else { return }
+        let clientID = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard clientID.range(of: "^[a-fA-F0-9]{32}$", options: .regularExpression) != nil else {
+            status = SpotifyError.configuration.localizedDescription
+            return
+        }
+        connecting = true
+        polling?.cancel()
+        polling = nil
+        generation = UUID()
+        let loginID = generation
+        authentication = Task { [weak self] in
+            guard let self else { return }
+            defer { if self.generation == loginID { self.connecting = false; self.authentication = nil; self.session = nil } }
+            do {
+                let verifier = try Self.randomURLSafeString()
+                let state = try Self.randomURLSafeString()
+                let challenge = Self.base64URL(Data(SHA256.hash(data: Data(verifier.utf8))))
+                var components = URLComponents(string: "https://accounts.spotify.com/authorize")!
+                components.queryItems = [
+                    .init(name: "client_id", value: clientID),
+                    .init(name: "response_type", value: "code"),
+                    .init(name: "redirect_uri", value: Self.redirectURI),
+                    .init(name: "scope", value: "user-read-currently-playing"),
+                    .init(name: "code_challenge_method", value: "S256"),
+                    .init(name: "code_challenge", value: challenge),
+                    .init(name: "state", value: state)
+                ]
+                guard let url = components.url else { throw SpotifyError.configuration }
+                let callback = try await self.authenticate(url)
+                try self.check(loginID)
+                guard let parts = URLComponents(url: callback, resolvingAgainstBaseURL: false),
+                      parts.scheme == Self.callbackScheme, parts.host == "callback",
+                      parts.path.isEmpty, parts.user == nil, parts.port == nil,
+                      parts.queryItems?.filter({ $0.name == "state" }).count == 1,
+                      parts.queryItems?.first(where: { $0.name == "state" })?.value == state else {
+                    throw SpotifyError.callback
+                }
+                guard parts.queryItems?.contains(where: { $0.name == "error" }) != true,
+                      parts.queryItems?.filter({ $0.name == "code" }).count == 1,
+                      let code = parts.queryItems?.first(where: { $0.name == "code" })?.value else {
+                    throw SpotifyError.authorization
+                }
+                let response = try await self.tokenRequest([
+                    "grant_type": "authorization_code", "code": code,
+                    "redirect_uri": Self.redirectURI, "client_id": clientID, "code_verifier": verifier
+                ], refreshing: false)
+                try self.check(loginID)
+                guard let refreshToken = response.refresh_token else { throw SpotifyError.authorization }
+                let saved = SpotifyTokens(accessToken: response.access_token, refreshToken: refreshToken,
+                    expiresAt: Date().addingTimeInterval(response.expires_in), clientID: clientID)
+                try TokenVault.save(saved)
+                self.tokens = saved
+                self.connected = true
+                self.status = "Spotify connecté. Lecture du morceau en cours…"
+                self.startPolling()
+            } catch is CancellationError {
+                // Disconnection or scene changes must not restore an obsolete session.
+            } catch {
+                guard self.generation == loginID else { return }
+                if let authError = error as? ASWebAuthenticationSessionError, authError.code == .canceledLogin {
+                    self.status = "Connexion annulée."
+                } else { self.status = error.localizedDescription }
+                if self.connected { self.startPolling() }
+            }
+        }
+    }
+
+    private func authenticate(_ url: URL) async throws -> URL {
+        try await withCheckedThrowingContinuation { continuation in
+            let auth = ASWebAuthenticationSession(url: url, callbackURLScheme: Self.callbackScheme) { url, error in
+                Task { @MainActor in
+                    if let error { continuation.resume(throwing: error) }
+                    else if let url { continuation.resume(returning: url) }
+                    else { continuation.resume(throwing: SpotifyError.callback) }
+                }
+            }
+            auth.presentationContextProvider = self
+            self.session = auth
+            guard auth.start() else {
+                self.session = nil
+                continuation.resume(throwing: SpotifyError.authorization)
+                return
+            }
+        }
+    }
+
+    func disconnect() {
+        generation = UUID()
+        pollID = UUID()
+        polling?.cancel(); polling = nil
+        authentication?.cancel(); authentication = nil
+        session?.cancel(); session = nil
+        tokens = nil
+        connected = false
+        connecting = false
+        playback = nil
+        lastUpdated = nil
+        do { try TokenVault.delete(); status = "Spotify déconnecté de cet iPhone." }
+        catch { status = "Déconnecté en mémoire, mais le trousseau n’a pas pu être effacé. Réessaie une fois l’iPhone déverrouillé." }
+    }
+
+    func setForeground(_ active: Bool) {
+        foreground = active
+        if active { startPolling() }
+        else {
+            pollID = UUID()
+            polling?.cancel(); polling = nil
+        }
+    }
+
+    private func startPolling() {
+        guard foreground, connected, polling == nil else { return }
+        let loginID = generation
+        let currentPoll = UUID()
+        pollID = currentPoll
+        polling = Task { [weak self] in
+            while !Task.isCancelled {
+                guard let self, self.generation == loginID, self.pollID == currentPoll,
+                      self.foreground, self.connected else { return }
+                let wait = self.nextAllowedRequest.timeIntervalSinceNow
+                if wait > 0 {
+                    do { try await Task.sleep(for: .seconds(wait)) } catch { return }
+                }
+                do {
+                    try await self.fetchPlayback(loginID: loginID, currentPoll: currentPoll)
+                } catch is CancellationError { return }
+                catch {
+                    guard self.generation == loginID, self.pollID == currentPoll else { return }
+                    self.playback = nil
+                    self.lastUpdated = nil
+                    self.status = error.localizedDescription
+                    if case SpotifyError.expired = error {
+                        self.disconnect()
+                        self.status = SpotifyError.expired.localizedDescription
+                        return
+                    }
+                    if case SpotifyError.forbidden = error {
+                        // Stop retrying a permanent permission failure until foregrounding again.
+                        self.polling = nil
+                        return
+                    }
+                    if case SpotifyError.rateLimit(let seconds) = error {
+                        self.nextAllowedRequest = Date().addingTimeInterval(seconds)
+                    } else {
+                        self.nextAllowedRequest = Date().addingTimeInterval(10)
+                    }
+                }
+                do { try await Task.sleep(for: .seconds(3)) } catch { return }
+            }
+        }
+    }
+
+    private func check(_ loginID: UUID, poll: UUID? = nil) throws {
+        try Task.checkCancellation()
+        guard loginID == generation, poll == nil || poll == pollID else { throw CancellationError() }
+    }
+
+    private func fetchPlayback(loginID: UUID, currentPoll: UUID) async throws {
+        for attempt in 0...1 {
+            let token = try await validAccessToken(loginID: loginID, force: attempt == 1)
+            try check(loginID, poll: currentPoll)
+            var request = URLRequest(url: URL(string: "https://api.spotify.com/v1/me/player/currently-playing")!)
+            request.timeoutInterval = 20
+            request.setValue("Bearer " + token, forHTTPHeaderField: "Authorization")
+            let (data, response) = try await URLSession.shared.data(for: request)
+            try check(loginID, poll: currentPoll)
+            guard let response = response as? HTTPURLResponse else { throw SpotifyError.network(0) }
+            switch response.statusCode {
+            case 200:
+                let decoded = try JSONDecoder().decode(SpotifyPlayback.self, from: data)
+                playback = decoded
+                lastUpdated = Date()
+                if decoded.item?.type == "track" {
+                    status = decoded.is_playing ? "Lecture en cours · Actualisation toutes les 3 secondes" : "Spotify en pause"
+                } else { status = "Aucun morceau musical disponible (publicité, podcast ou session privée)." }
+                return
+            case 204:
+                playback = nil; lastUpdated = Date()
+                status = "Aucune lecture détectée. Lance un morceau dans Spotify."
+                return
+            case 401:
+                if attempt == 1 { throw SpotifyError.expired }
+            case 403: throw SpotifyError.forbidden
+            case 429: throw SpotifyError.rateLimit(Self.retryDelay(response))
+            default: throw SpotifyError.network(response.statusCode)
+            }
+        }
+    }
+
+    private func validAccessToken(loginID: UUID, force: Bool) async throws -> String {
+        guard let saved = tokens else { throw SpotifyError.expired }
+        if !force, saved.expiresAt.timeIntervalSinceNow > 60 { return saved.accessToken }
+        let response = try await tokenRequest([
+            "grant_type": "refresh_token", "refresh_token": saved.refreshToken, "client_id": saved.clientID
+        ], refreshing: true)
+        try check(loginID)
+        let renewed = SpotifyTokens(accessToken: response.access_token,
+            refreshToken: response.refresh_token ?? saved.refreshToken,
+            expiresAt: Date().addingTimeInterval(response.expires_in), clientID: saved.clientID)
+        try TokenVault.save(renewed)
+        tokens = renewed
+        return renewed.accessToken
+    }
+
+    private struct TokenResponse: Decodable {
+        let access_token: String
+        let refresh_token: String?
+        let expires_in: Double
+    }
+    private func tokenRequest(_ fields: [String: String], refreshing: Bool) async throws -> TokenResponse {
+        var request = URLRequest(url: URL(string: "https://accounts.spotify.com/api/token")!)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 20
+        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+        // RFC 3986 percent encoding keeps '+' and '&' out of individual form values.
+        let allowed = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~")
+        request.httpBody = Data(fields.sorted(by: { $0.key < $1.key }).map {
+            $0.key.addingPercentEncoding(withAllowedCharacters: allowed)! + "=" +
+            $0.value.addingPercentEncoding(withAllowedCharacters: allowed)!
+        }.joined(separator: "&").utf8)
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let response = response as? HTTPURLResponse else { throw SpotifyError.network(0) }
+        if response.statusCode == 429 { throw SpotifyError.rateLimit(Self.retryDelay(response)) }
+        if response.statusCode == 400 || response.statusCode == 401 {
+            throw refreshing ? SpotifyError.expired : SpotifyError.authorization
+        }
+        guard response.statusCode == 200 else { throw SpotifyError.network(response.statusCode) }
+        return try JSONDecoder().decode(TokenResponse.self, from: data)
+    }
+
+    private static func retryDelay(_ response: HTTPURLResponse) -> TimeInterval {
+        max(3, Double(response.value(forHTTPHeaderField: "Retry-After") ?? "") ?? 30)
+    }
+    private static func randomURLSafeString() throws -> String {
+        var bytes = [UInt8](repeating: 0, count: 32)
+        let status = bytes.withUnsafeMutableBytes { buffer in
+            SecRandomCopyBytes(kSecRandomDefault, buffer.count, buffer.baseAddress!)
+        }
+        guard status == errSecSuccess else { throw SpotifyError.authorization }
+        return base64URL(Data(bytes))
+    }
+    private static func base64URL(_ data: Data) -> String {
+        data.base64EncodedString().replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: "=", with: "")
+    }
+}
