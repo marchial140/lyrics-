@@ -7,3 +7,7 @@ Vérification structurelle : RÉUSSIE
 
 Compilation Swift / Xcode : NON EFFECTUÉE (outils absents dans Linux).
 Exécution simulateur, signature iPhone et affichage CarPlay : NON EFFECTUÉS.
+
+Ajout Spotify : OAuth PKCE, Keychain et suivi au premier plan implémentés.
+Configuration du schéma callback et structure du projet contrôlées.
+Compilation iOS et authentification réelle Spotify : NON EFFECTUÉES ici.
