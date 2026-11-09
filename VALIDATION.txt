@@ -1,19 +1,12 @@
-Vérification structurelle : RÉUSSIE
-- Syntaxe OpenStep du project.pbxproj analysée.
-- Références d’objets et chemins des sources résolus.
-- Deux cibles, dépendance et copie de l’extension vérifiées.
-- Attributs ActivityKit partagés entre les deux cibles.
-- NSSupportsLiveActivities, plist WidgetKit et schéma partagé vérifiés.
+Version paroles LRCLIB
 
-Compilation Swift / Xcode : NON EFFECTUÉE (outils absents dans Linux).
-Exécution simulateur, signature iPhone et affichage CarPlay : NON EFFECTUÉS.
+Contrôles effectués dans Linux :
+- Structure OpenStep du projet, références de fichiers et schéma partagé.
+- Trois cibles : app, extension WidgetKit, tests du parseur.
+- Dépendance SpotifyLogin conservée ; nouveaux fichiers de paroles dans la cible app.
+- Requête HTTP réelle à l’API LRCLIB : 200, paroles simples et synchronisées présentes ; aucun texte de chanson reproduit dans les journaux de validation.
+- Diff sans erreurs d’espacement.
 
-Ajout Spotify : OAuth PKCE, Keychain et suivi au premier plan implémentés.
-Configuration du schéma callback et structure du projet contrôlées.
-Compilation iOS et authentification réelle Spotify : NON EFFECTUÉES ici.
-
-Connexion app-to-app : SDK officiel SpotifyLogin 3.1.2 ajouté et épinglé.
-Schéma Spotify, onOpenURL, déclarations Swift Package et fichiers vérifiés.
-Ouverture réelle de Spotify et consentement sur iPhone : NON TESTÉS ici.
-
-Correction retour Spotify : session possédée par l’app, normalisation du callback, erreurs et délais bornés (120/5/20 s). Contrôles statiques des chemins et du câblage réussis ; pas de compilation ni d’exécution iOS dans cet environnement.
+À effectuer sur Mac : compilation iOS et exécution des tests XCTest.
+À effectuer sur iPhone/CarPlay : récupération, surlignage, mises à jour et comportement d’arrière-plan.
+Ces vérifications matérielles ne sont pas présentées comme réalisées. L’utilisateur a confirmé la connexion Spotify de la version précédente.
