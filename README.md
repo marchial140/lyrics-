@@ -1,13 +1,13 @@
 # LyricLive — Live Activity pour iPhone et CarPlay
 
-Connexion Spotify : consulte [SPOTIFY.md](SPOTIFY.md) pour créer ton Client ID, puis utilise le bouton **Connecter Spotify** dans l’app. Titre, artiste, pochette, état de lecture et progression sont actualisés environ toutes les trois secondes au premier plan.
+Connexion Spotify : le bouton **Connecter Spotify** ouvre directement l’app Spotify installée pour obtenir le consentement, puis revient dans LyricLive. Le développeur doit configurer une seule fois son Client ID dans `App/SpotifyConfiguration.swift` ; consulte [SPOTIFY.md](SPOTIFY.md). Titre, artiste, pochette, état de lecture et progression sont actualisés environ toutes les trois secondes au premier plan.
 
 Projet natif Swift / SwiftUI avec **deux cibles** : l’app iPhone et une extension WidgetKit contenant la Live Activity. Le dossier `LyricLive.xcodeproj` est le projet à ouvrir ; garder les dossiers App, Shared et Widget à côté. Le ZIP contient tout le nécessaire.
 
 ## Prérequis et lancement
 
 1. Décompresser **LyricLive.zip** sur un Mac avec **Xcode 26 ou plus récent** et le SDK iOS correspondant.
-2. Ouvrir `LyricLive/LyricLive.xcodeproj`.
+2. Ouvrir `LyricLive/LyricLive.xcodeproj` (ou `LyricLive.xcodeproj` à la racine du dépôt GitHub). Laisser Xcode télécharger et résoudre le package officiel **SpotifyLogin 3.1.2** depuis `spotify/ios-auth`.
 3. Sélectionner le schéma partagé **LyricLive**, puis un iPhone ou simulateur sous **iOS 26 ou plus récent**.
 4. Pour installer sur iPhone, dans **Signing & Capabilities**, choisir la même équipe pour **LyricLive** et **LyricLiveWidget**.
 5. Remplacer les deux Bundle Identifiers par des identifiants uniques, par exemple `ca.votrenom.LyricLive` et `ca.votrenom.LyricLive.widget`. L’identifiant de l’extension doit commencer par celui de l’app suivi d’un point. Ne pas ajouter d’entitlement CarPlay audio/communication ou Time Sensitive pour ce prototype.
