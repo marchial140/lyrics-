@@ -1,5 +1,12 @@
 // !$*UTF8*$!
 {archiveVersion = 1; classes = {}; objectVersion = 56; objects = {
+00000000000000000000006F = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "App/SpotifyAppAuthentication.swift"; sourceTree = "<group>"; };
+0000000000000000000000D3 = {isa = PBXBuildFile; fileRef = 00000000000000000000006F; };
+000000000000000000000070 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "App/SpotifyConfiguration.swift"; sourceTree = "<group>"; };
+0000000000000000000000D4 = {isa = PBXBuildFile; fileRef = 000000000000000000000070; };
+00000000000000000000012C = {isa = XCRemoteSwiftPackageReference; repositoryURL = "https://github.com/spotify/ios-auth.git"; requirement = {kind = exactVersion; version = 3.1.2; }; };
+00000000000000000000012D = {isa = XCSwiftPackageProductDependency; package = 00000000000000000000012C; productName = SpotifyLogin; };
+00000000000000000000012E = {isa = PBXBuildFile; productRef = 00000000000000000000012D; };
 00000000000000000000006C = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "App/SpotifyClient.swift"; sourceTree = "<group>"; };
 0000000000000000000000D0 = {isa = PBXBuildFile; fileRef = 00000000000000000000006C; };
 00000000000000000000006D = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "App/SpotifyView.swift"; sourceTree = "<group>"; };
@@ -20,13 +27,13 @@
 0000000000000000000000CC = {isa = PBXBuildFile; fileRef = 000000000000000000000067; };
 0000000000000000000000CD = {isa = PBXBuildFile; fileRef = 000000000000000000000068; };
 0000000000000000000000CE = {isa = PBXBuildFile; fileRef = 00000000000000000000006B; settings = {ATTRIBUTES = (RemoveHeadersOnCopy); }; };
-000000000000000000000001 = {isa = PBXProject; attributes = {LastUpgradeCheck = 2600; BuildIndependentTargetsInParallel = YES; }; buildConfigurationList = 000000000000000000000028; compatibilityVersion = "Xcode 14.0"; developmentRegion = fr; knownRegions = (fr, Base); mainGroup = 000000000000000000000002; productRefGroup = 000000000000000000000003; projectDirPath = ""; projectRoot = ""; targets = (00000000000000000000000A, 00000000000000000000000B); };
-000000000000000000000002 = {isa = PBXGroup; children = (00000000000000000000006C, 00000000000000000000006D, 00000000000000000000006E, 000000000000000000000064, 000000000000000000000065, 000000000000000000000066, 000000000000000000000067, 000000000000000000000068, 000000000000000000000069, 000000000000000000000003); sourceTree = "<group>"; };
+000000000000000000000001 = {isa = PBXProject; attributes = {LastUpgradeCheck = 2600; BuildIndependentTargetsInParallel = YES; }; buildConfigurationList = 000000000000000000000028; compatibilityVersion = "Xcode 14.0"; developmentRegion = fr; knownRegions = (fr, Base); mainGroup = 000000000000000000000002; productRefGroup = 000000000000000000000003; packageReferences = (00000000000000000000012C); projectDirPath = ""; projectRoot = ""; targets = (00000000000000000000000A, 00000000000000000000000B); };
+000000000000000000000002 = {isa = PBXGroup; children = (00000000000000000000006F, 000000000000000000000070, 00000000000000000000006C, 00000000000000000000006D, 00000000000000000000006E, 000000000000000000000064, 000000000000000000000065, 000000000000000000000066, 000000000000000000000067, 000000000000000000000068, 000000000000000000000069, 000000000000000000000003); sourceTree = "<group>"; };
 000000000000000000000003 = {isa = PBXGroup; children = (00000000000000000000006A, 00000000000000000000006B); name = Products; sourceTree = "<group>"; };
-00000000000000000000000A = {isa = PBXNativeTarget; buildConfigurationList = 000000000000000000000029; buildPhases = (000000000000000000000014, 000000000000000000000015, 000000000000000000000016, 00000000000000000000001A); buildRules = (); dependencies = (00000000000000000000001F); name = LyricLive; productName = LyricLive; productReference = 00000000000000000000006A; productType = "com.apple.product-type.application"; };
+00000000000000000000000A = {isa = PBXNativeTarget; buildConfigurationList = 000000000000000000000029; buildPhases = (000000000000000000000014, 000000000000000000000015, 000000000000000000000016, 00000000000000000000001A); buildRules = (); dependencies = (00000000000000000000001F); name = LyricLive; packageProductDependencies = (00000000000000000000012D); productName = LyricLive; productReference = 00000000000000000000006A; productType = "com.apple.product-type.application"; };
 00000000000000000000000B = {isa = PBXNativeTarget; buildConfigurationList = 00000000000000000000002A; buildPhases = (000000000000000000000017, 000000000000000000000018, 000000000000000000000019); buildRules = (); dependencies = (); name = LyricLiveWidget; productName = LyricLiveWidget; productReference = 00000000000000000000006B; productType = "com.apple.product-type.app-extension"; };
-000000000000000000000014 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (0000000000000000000000D0, 0000000000000000000000D1, 0000000000000000000000C8, 0000000000000000000000C9, 0000000000000000000000CA, 0000000000000000000000CB); runOnlyForDeploymentPostprocessing = 0; };
-000000000000000000000015 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+000000000000000000000014 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (0000000000000000000000D3, 0000000000000000000000D4, 0000000000000000000000D0, 0000000000000000000000D1, 0000000000000000000000C8, 0000000000000000000000C9, 0000000000000000000000CA, 0000000000000000000000CB); runOnlyForDeploymentPostprocessing = 0; };
+000000000000000000000015 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (00000000000000000000012E); runOnlyForDeploymentPostprocessing = 0; };
 000000000000000000000016 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 000000000000000000000017 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (0000000000000000000000CC, 0000000000000000000000CD); runOnlyForDeploymentPostprocessing = 0; };
 000000000000000000000018 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
