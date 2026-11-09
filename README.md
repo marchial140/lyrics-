@@ -1,64 +1,49 @@
-# LyricLive — Live Activity pour iPhone et CarPlay
+# LyricLive — Spotify, paroles et Live Activity
 
-Connexion Spotify : le bouton **Connecter Spotify** ouvre directement l’app Spotify installée pour obtenir le consentement, puis revient dans LyricLive. Le Client ID est intégré au projet ; aucune saisie n’est nécessaire dans l’app. Consulte [SPOTIFY.md](SPOTIFY.md) pour les réglages du Dashboard Spotify. Titre, artiste, pochette, état de lecture et progression sont actualisés environ toutes les trois secondes au premier plan.
+Le bouton **Connecter Spotify** ouvre l’app Spotify pour obtenir le consentement et revient dans LyricLive. Le Client ID public est intégré. Le morceau en cours s’actualise environ toutes les trois secondes au premier plan.
 
-Projet natif Swift / SwiftUI avec **deux cibles** : l’app iPhone et une extension WidgetKit contenant la Live Activity. Le dossier `LyricLive.xcodeproj` est le projet à ouvrir ; garder les dossiers App, Shared et Widget à côté. Le ZIP contient tout le nécessaire.
+Les paroles sont recherchées dans **LRCLIB**, une API publique accessible sans clé. Si une version synchronisée existe, la ligne actuelle est surlignée et le texte défile dans l’app. Le bouton **Afficher les paroles dans la Live Activity** envoie cette même ligne à ActivityKit, avec la suivante. Lors d’un changement de morceau, le titre et les paroles sont remplacés. La couverture et la disponibilité varient selon les morceaux et les versions.
 
-## Prérequis et lancement
+## Installer la mise à jour
 
-1. Décompresser **LyricLive.zip** sur un Mac avec **Xcode 26 ou plus récent** et le SDK iOS correspondant.
-2. Ouvrir `LyricLive/LyricLive.xcodeproj` (ou `LyricLive.xcodeproj` à la racine du dépôt GitHub). Laisser Xcode télécharger et résoudre le package officiel **SpotifyLogin 3.1.2** depuis `spotify/ios-auth`.
-3. Sélectionner le schéma partagé **LyricLive**, puis un iPhone ou simulateur sous **iOS 26 ou plus récent**.
-4. Pour installer sur iPhone, dans **Signing & Capabilities**, choisir la même équipe pour **LyricLive** et **LyricLiveWidget**.
-5. Remplacer les deux Bundle Identifiers par des identifiants uniques, par exemple `ca.votrenom.LyricLive` et `ca.votrenom.LyricLive.widget`. L’identifiant de l’extension doit commencer par celui de l’app suivi d’un point. Ne pas ajouter d’entitlement CarPlay audio/communication ou Time Sensitive pour ce prototype.
-6. Activer Developer Mode sur l’iPhone si Xcode le demande. Run.
-7. Appuyer sur **Démarrer la Live Activity**. Vérifier l’écran verrouillé et, si disponible, la Dynamic Island. Utiliser **Suivante** pour publier une nouvelle ligne, ou **Lire la démo de 30 secondes** pour le défilement automatique au premier plan.
-8. **Arrêter et retirer l’activité** termine toutes les instances appartenant à ce prototype.
+1. Télécharger le dépôt complet via **Code → Download ZIP**, ou mettre à jour le clone.
+2. Ouvrir `LyricLive.xcodeproj` avec **Xcode 26+**. Laisser Xcode résoudre **SpotifyLogin 3.1.2**.
+3. Sélectionner le schéma **LyricLive** et un iPhone sous **iOS 26+**. Choisir son équipe de signature pour l’app et l’extension ; utiliser des Bundle IDs uniques et cohérents.
+4. Dans Spotify Developer, enregistrer le Bundle ID réel, activer iOS SDK/Web API, autoriser le compte de test et vérifier le Redirect URI : `com.lyriclive.spotify://callback`.
+5. Lancer, connecter Spotify, jouer une chanson puis revenir dans LyricLive. Attendre la recherche des paroles sous la section Spotify.
+6. Toucher **Afficher les paroles dans la Live Activity**. Vérifier l’écran verrouillé, la Dynamic Island et, dans un véhicule stationné, le tableau de bord CarPlay.
 
-L’app déclare `NSSupportsLiveActivities`. Elle ne demande pas les permissions de notifications ordinaires et ne configure aucun son ni APNs. La démo fonctionne sans clé ; le Client ID public de la connexion Spotify est déjà intégré.
+Le projet comprend trois cibles : l’app, l’extension WidgetKit et les tests du parseur de paroles. Les cibles app et extension partagent les attributs ActivityKit. La cible de test dépend de l’app.
 
-## Essayer CarPlay
+## Comportements et limites
 
-Dans un véhicule stationné, connecter l’iPhone à CarPlay. Démarrer l’activité depuis l’iPhone, puis ouvrir le tableau de bord CarPlay. Selon les réglages iOS, l’activité peut être proposée automatiquement. Vérifier dans Réglages les activités en direct de LyricLive ainsi que les réglages d’activités en direct de CarPlay disponibles sur votre version.
+- Recherche par titre, artiste principal, album et durée ; seconde tentative sans album si aucun résultat. Pas de substitution par une chanson vaguement similaire.
+- Paroles synchronisées : défilement estimé à partir de la progression Spotify ; correction au prochain échantillon en cas de pause, changement ou déplacement dans la chanson.
+- Paroles sans timestamps : texte lisible dans l’app, sans inventer une ligne synchronisée dans la Live Activity.
+- Instrumental, paroles absentes, panne et limite de requêtes : message explicite et effacement des paroles du morceau précédent.
+- Seul le titre/artiste/album/durée nécessaires à la recherche sont transmis à LRCLIB ; jamais les jetons Spotify. Cache mémoire limité à vingt morceaux, aucun stockage persistant de paroles.
+- `User-Agent` identifié, requêtes espacées, respect du `Retry-After` et ajout de jitter. Un bouton permet de rechercher à nouveau sans contourner le délai du service.
+- Aucun son de notification ni alertConfiguration ; les mises à jour identiques sont regroupées. L’affichage et la cadence sont gérés par ActivityKit et CarPlay.
+- **La synchronisation fonctionne au premier plan.** Lorsque LyricLive devient inactive ou passe en arrière-plan, son suivi s’arrête et la Live Activity indique « Suivi suspendu ». Une Live Activity ne donne pas de temps d’exécution continu à l’app. Aucune mise à jour continue dans une auto lorsque l’iPhone est verrouillé n’est promise.
+- Au retour, le défilement attend un nouvel échantillon Spotify. Le changement de titre recrée l’activité, car les attributs de titre sont immuables. L’arrêt ou l’absence de lecture termine l’activité suivie.
 
-L’extension fournit une présentation `.small` avec `supplementalActivityFamilies([.small])`, adaptée à CarPlay et Apple Watch. Les vues compactes de la Dynamic Island fournissent également une présentation de repli. Aucun bouton n’est ajouté à la vue CarPlay, les Live Activities y étant non interactives.
-
-**L’affichage et la cadence réelle ne sont pas garantis.** CarPlay et ActivityKit gèrent la présentation. Les essais sur simulateur ne prouvent pas le résultat dans un véhicule.
-
-## Ce que fait ce prototype
-
-- Texte original de cinq lignes, sans parole commerciale ni audio.
-- Démarrage et récupération d’une activité existante au retour dans l’app.
-- Changement manuel de ligne dans les deux sens.
-- Démo de 30 secondes avec mises à jour aux changements de ligne, sans alertConfiguration.
-- Pause automatique lorsque l’app quitte le premier plan. La dernière ligne peut rester visible ; une mise à jour demande l’affichage du statut Pause.
-- Indication de contenu ancien après la staleDate (60 secondes après la dernière publication) dans les présentations détaillées et petites.
-- Arrêt immédiat demandé à ActivityKit ; le rendu effectif reste géré par iOS.
-- Interface française, sombre et avec polices système adaptatives.
-
-**La connexion Spotify est disponible dans la section en haut de l’app.** Elle lit les métadonnées de la lecture en cours au premier plan, avec une latence liée au réseau et à Spotify. La Live Activity reste une démonstration indépendante de textes originaux. La synchronisation des paroles et une mise à jour continue en arrière-plan restent des travaux distincts. L’API ActivityKit n’accorde pas de temps d’exécution continu à l’app. Nous n’utilisons ni audio silencieux ni faux mode d’arrière-plan.
-
-L’app n’imite pas la présentation ni le code de Dynamic Lyrics : elle teste le même mécanisme public d’affichage, ActivityKit.
-
-## Validation et limites connues
-
-Projet et sources générés dans Linux ; Xcode, Swift et le SDK iOS n’y sont pas disponibles. **Aucune compilation iOS ni installation n’a pu être exécutée ici.** Les vérifications effectuées concernent la structure du projet, les références de fichiers, l’intégration de l’extension, les fichiers plist et le schéma partagé. Aucun test matériel iPhone/CarPlay n’est annoncé comme réalisé.
-
-Sur Mac, commencer par :
+## Vérification
 
 ```sh
-xcodebuild -list -project LyricLive.xcodeproj
 xcodebuild -project LyricLive.xcodeproj -scheme LyricLive \
   -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
 ```
 
-Puis installer une version signée sur l’iPhone. Aucun catalogue d’icônes de publication n’est fourni : en ajouter un avant distribution. Le projet est un prototype de développement, pas une app prête à publier.
+Dans Xcode, lancer **Product → Test** sur un simulateur iOS 26+ pour les tests `LyricsTimelineTests`. Voir `TESTS.md` pour les essais fonctionnels et matériels.
 
-## Sources
+Dans l’environnement Linux de développement, la syntaxe du projet et ses références ont été vérifiées et une requête LRCLIB réelle a réussi. **La compilation Swift, les tests XCTest et les essais de cette version sur iPhone/CarPlay n’ont pas été exécutés ici.** Le fonctionnement de la connexion Spotify a été confirmé par l’utilisateur pour la version précédente.
 
-- Apple : https://developer.apple.com/carplay/
-- CarPlay, Live Activities depuis iOS 26 : https://developer.apple.com/videos/play/wwdc2025/216/
-- Présentations et famille small : https://developer.apple.com/documentation/activitykit/creating-custom-views-for-live-activities
-- Cycle de vie ActivityKit : https://developer.apple.com/documentation/activitykit/displaying-live-data-with-live-activities
-- Référence qui a orienté ce prototype, Dynamic Lyrics (notes de version annonçant une Live Activity CarPlay) : https://apps.apple.com/us/app/dynamic-lyrics-car-karaoke/id6753217999
-- Restrictions Spotify à traiter avant une intégration de paroles synchronisées : https://developer.spotify.com/compliance-tips
+## API et droits avant distribution
+
+L’accès public à l’API LRCLIB autorise son utilisation technique selon sa documentation ; il ne constitue pas une preuve que chaque parole est licenciée pour une distribution commerciale ou automobile. Les conditions et droits pour ces usages doivent être validés avant publication. Spotify indique également que la synchronisation de ses enregistrements avec des paroles est un usage interdit dans ses Compliance Tips ; un accord adapté reste nécessaire pour distribuer ce concept. Ce dépôt est un prototype, pas une validation commerciale ou App Store.
+
+- API LRCLIB : https://lrclib.net/docs.txt
+- Authentification et configuration : [SPOTIFY.md](SPOTIFY.md)
+- Spotify Compliance Tips : https://developer.spotify.com/compliance-tips
+- ActivityKit : https://developer.apple.com/documentation/activitykit/displaying-live-data-with-live-activities
+- CarPlay : https://developer.apple.com/carplay/
