@@ -15,3 +15,5 @@ Compilation iOS et authentification réelle Spotify : NON EFFECTUÉES ici.
 Connexion app-to-app : SDK officiel SpotifyLogin 3.1.2 ajouté et épinglé.
 Schéma Spotify, onOpenURL, déclarations Swift Package et fichiers vérifiés.
 Ouverture réelle de Spotify et consentement sur iPhone : NON TESTÉS ici.
+
+Correction retour Spotify : session possédée par l’app, normalisation du callback, erreurs et délais bornés (120/5/20 s). Contrôles statiques des chemins et du câblage réussis ; pas de compilation ni d’exécution iOS dans cet environnement.
