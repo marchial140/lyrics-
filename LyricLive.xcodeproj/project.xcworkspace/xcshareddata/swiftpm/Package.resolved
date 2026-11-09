@@ -1,0 +1,14 @@
+{
+  "pins": [
+    {
+      "identity": "ios-auth",
+      "kind": "remoteSourceControl",
+      "location": "https://github.com/spotify/ios-auth.git",
+      "state": {
+        "revision": "1e92eb3ddd632a3ab3b2ed852057948f8ef05067",
+        "version": "3.1.2"
+      }
+    }
+  ],
+  "version": 2
+}
