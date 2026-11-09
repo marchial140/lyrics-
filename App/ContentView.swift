@@ -3,12 +3,15 @@ import UIKit
 
 struct ContentView: View {
     @StateObject private var controller = LiveActivityController()
+    @StateObject private var spotify = SpotifyClient()
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
+                    SpotifyView(client: spotify)
+                    Divider()
                     Label("LIVE ACTIVITY · CARPLAY", systemImage: "waveform")
                         .font(.caption.weight(.bold)).foregroundStyle(.mint)
                     Text("Tes paroles,\nau bon endroit.")
@@ -57,7 +60,7 @@ struct ContentView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Tester dans ton auto").font(.headline)
                         Text("À l’arrêt, connecte ton iPhone sous iOS 26 ou plus récent à CarPlay. Démarre l’activité, puis ouvre le tableau de bord CarPlay. L’affichage est géré par iOS et les réglages de ton auto.")
-                        Text("Le défilement automatique s’arrête lorsque l’app quitte le premier plan. La dernière ligne peut rester visible, avec l’indication Pause. Ce prototype ne se connecte pas à Spotify.")
+                        Text("Le défilement automatique s’arrête lorsque l’app quitte le premier plan. La dernière ligne peut rester visible, avec l’indication Pause. La section Spotify affiche ta lecture actuelle ; la Live Activity ci-dessus utilise les textes de démonstration.")
                         Button("Réglages iOS") {
                             if let url = URL(string: UIApplication.openSettingsURLString) {
                                 UIApplication.shared.open(url)
@@ -72,8 +75,12 @@ struct ContentView: View {
                 }.padding(24).disabled(controller.busy)
             }.background(Color(red: 0.025, green: 0.045, blue: 0.055))
                 .navigationTitle("LyricLive").navigationBarTitleDisplayMode(.inline)
-                .task { await controller.setForeground(scenePhase == .active) }
+                .task {
+                    spotify.setForeground(scenePhase == .active)
+                    await controller.setForeground(scenePhase == .active)
+                }
                 .onChange(of: scenePhase) { _, phase in
+                    spotify.setForeground(phase == .active)
                     Task { await controller.setForeground(phase == .active) }
                 }
         }
