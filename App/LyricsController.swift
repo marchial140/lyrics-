@@ -22,6 +22,8 @@ final class LyricsController: ObservableObject {
     private var samplePosition: TimeInterval = 0
     private var sampleUptime = ProcessInfo.processInfo.systemUptime
     private var activity: Activity<LyricAttributes>?
+    private var remoteEnabled = BackgroundSyncClient.shared.enabled
+    private var activityUsesPush = false
     private var activityKey: String?
     private var publishing: Task<Void, Never>?
     private var publicationNeeded = false
@@ -65,11 +67,23 @@ final class LyricsController: ObservableObject {
         requestPublication()
     }
 
+    func setRemoteEnabled(_ enabled: Bool) {
+        remoteEnabled = enabled
+        requestPublication()
+    }
+
     func setForeground(_ active: Bool) {
         let resumed = active && !foreground
         foreground = active
         if resumed { hasFreshSnapshot = false }
         if active {
+            if remoteEnabled, activity == nil,
+               let restored = Activity<LyricAttributes>.activities.first(where: {
+                   $0.attributes.serverManaged == true && ($0.activityState == .active || $0.activityState == .stale)
+               }) {
+                activity = restored; activityUsesPush = true; liveEnabled = true
+                BackgroundSyncClient.shared.bind(restored)
+            }
             if loading, loadTask == nil { fetch() }
             startClock()
         } else {
@@ -91,6 +105,7 @@ final class LyricsController: ObservableObject {
 
     func setLiveEnabled(_ enabled: Bool) {
         liveEnabled = enabled
+        if !enabled { BackgroundSyncClient.shared.unbind() }
         requestPublication()
     }
 
@@ -172,6 +187,11 @@ final class LyricsController: ObservableObject {
     }
 
     private func publishLatest() async {
+        if liveEnabled, remoteEnabled, activityUsesPush, let activity,
+           activity.activityState == .active || activity.activityState == .stale {
+            BackgroundSyncClient.shared.bind(activity)
+            return // The server is the only writer, including while iOS suspends the app.
+        }
         guard liveEnabled, let track else {
             if let activity { await activity.end(nil, dismissalPolicy: .immediate) }
             activity = nil; activityKey = nil
@@ -181,9 +201,10 @@ final class LyricsController: ObservableObject {
         let state = LyricAttributes.ContentState(
             line: String(currentLine.prefix(300)), nextLine: String(nextLine.prefix(300)),
             lineNumber: (activeIndex ?? -1) + 1, isPlaying: playing,
-            status: !foreground ? "Suivi suspendu · Ouvre LyricLive" : (!hasFreshSnapshot ? "Actualisation Spotify…" : (playing ? "En lecture · LRCLIB" : "Spotify en pause · LRCLIB")))
+            status: !foreground ? "Suivi suspendu · Ouvre LyricLive" : (!hasFreshSnapshot ? "Actualisation Spotify…" : (playing ? "En lecture · LRCLIB" : "Spotify en pause · LRCLIB")),
+            trackTitle: track.title, trackArtist: track.artist)
         let content = ActivityContent(state: state, staleDate: Date().addingTimeInterval(foreground ? 30 : 1))
-        if let activity, activityKey == track.key,
+        if let activity, activityKey == track.key, activityUsesPush == remoteEnabled,
            activity.activityState == .active || activity.activityState == .stale {
             let now = ProcessInfo.processInfo.systemUptime
             guard state != publishedState || now - publishedUptime >= 15 else { return }
@@ -205,8 +226,10 @@ final class LyricsController: ObservableObject {
         }
         do {
             activity = try Activity.request(attributes: LyricAttributes(
-                title: track.title, artist: track.artist, source: "LRCLIB"), content: content, pushType: nil)
+                title: String(track.title.prefix(100)), artist: String(track.artist.prefix(100)), source: "LRCLIB", serverManaged: remoteEnabled), content: content, pushType: remoteEnabled ? .token : nil)
             activityKey = track.key
+            activityUsesPush = remoteEnabled
+            if remoteEnabled, let activity { BackgroundSyncClient.shared.bind(activity) }
             publishedState = state; publishedUptime = ProcessInfo.processInfo.systemUptime
             liveMessage = "Live Activity activée. Présentation gérée par iOS."
         } catch {
