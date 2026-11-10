@@ -3,6 +3,7 @@ import SwiftUI
 struct ContentView: View {
     @ObservedObject var spotify: SpotifyClient
     @StateObject private var lyrics = LyricsController()
+    @ObservedObject private var background = BackgroundSyncClient.shared
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
@@ -10,6 +11,7 @@ struct ContentView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     SpotifyView(client: spotify)
+                    BackgroundSettingsView(spotify: spotify)
                     VStack(alignment: .leading, spacing: 16) {
                         HStack {
                             Label("Paroles", systemImage: "text.quote").font(.title2.bold())
@@ -48,25 +50,17 @@ struct ContentView: View {
                     .buttonStyle(.borderedProminent).tint(.mint).foregroundStyle(.black)
                     .disabled(lyrics.track == nil && !lyrics.liveEnabled)
                     Text(lyrics.liveMessage).font(.footnote).foregroundStyle(.secondary)
-                    Text("Le suivi se met à jour lorsque LyricLive reste au premier plan. Hors de l’app, la Live Activity indique que le suivi est suspendu. L’affichage CarPlay est géré par iOS.")
+                    Text("Sans serveur, le suivi s’arrête hors de l’app. Avec le suivi serveur activé et la Live Activity inscrite, les lignes peuvent être envoyées à l’iPhone verrouillé via Apple. L’affichage et sa cadence sont gérés par iOS.")
                         .font(.footnote).foregroundStyle(.secondary)
                 }.padding(24)
             }
             .background(Color(red: 0.025, green: 0.045, blue: 0.055))
             .navigationTitle("LyricLive").navigationBarTitleDisplayMode(.inline)
-            .onReceive(spotify.$playback) { lyrics.accept($0) }
-            .task {
-                lyrics.setForeground(scenePhase == .active)
-                spotify.setForeground(scenePhase == .active)
+            .onReceive(background.$enabled) { lyrics.setRemoteEnabled($0) }
+            .onChange(of: spotify.connected) { _, connected in
+                if !connected { lyrics.setLiveEnabled(false) }
             }
-            .onChange(of: scenePhase) { _, phase in
-                lyrics.setForeground(phase == .active)
-                spotify.setForeground(phase == .active)
-            }
-        }
-    }
-
-    private var timedLyrics: some View {
+          …111 tokens truncated…s: some View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 20) {
