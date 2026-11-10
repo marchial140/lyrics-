@@ -10,3 +10,5 @@ Contrôles effectués dans Linux :
 À effectuer sur Mac : compilation iOS et exécution des tests XCTest.
 À effectuer sur iPhone/CarPlay : récupération, surlignage, mises à jour et comportement d’arrière-plan.
 Ces vérifications matérielles ne sont pas présentées comme réalisées. L’utilisateur a confirmé la connexion Spotify de la version précédente.
+
+Mode serveur APNs : 15 tests Node exécutés et réussis, avec Spotify et APNs simulés ; chiffrement SQLite et signature ES256 réels testés. Aucun compte Apple, clé APNs, hébergement ou iPhone de test disponible pour cette intégration. Compilation iOS et livraison APNs réelle non effectuées.
