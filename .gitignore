@@ -2,3 +2,8 @@ DerivedData/
 *.xcuserstate
 xcuserdata/
 .DS_Store
+
+# Background service credentials and encrypted runtime data
+server/.env
+server/data/
+*.p8
