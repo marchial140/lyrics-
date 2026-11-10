@@ -22,7 +22,7 @@ struct LyricsLiveActivity: Widget {
                     Text(context.attributes.source ?? "DÉMO").font(.caption2).foregroundStyle(.secondary)
                 }
                 DynamicIslandExpandedRegion(.center) {
-                    Text(context.attributes.title).font(.caption.bold()).lineLimit(1)
+                    Text((context.state.trackTitle ?? context.attributes.title)).font(.caption.bold()).lineLimit(1)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
                     VStack(alignment: .leading, spacing: 6) {
@@ -53,7 +53,7 @@ struct LyricActivityView: View {
         VStack(alignment: .leading, spacing: family == .small ? 5 : 10) {
             HStack(spacing: 6) {
                 Image(systemName: "music.note").foregroundStyle(.mint)
-                Text(context.attributes.title)
+                Text((context.state.trackTitle ?? context.attributes.title))
                     .font(.caption.bold()).lineLimit(1)
                 Spacer(minLength: 0)
                 if family != .small {
