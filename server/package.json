@@ -1,0 +1,1 @@
+{"name":"lyriclive-background","version":"0.4.0","private":true,"type":"module","engines":{"node":">=24"},"scripts":{"start":"node --env-file=.env src/main.mjs","test":"node --test test/*.test.mjs"}}
