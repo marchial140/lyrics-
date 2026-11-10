@@ -1,5 +1,7 @@
 # LyricLive — Spotify, paroles et Live Activity
 
+**Nouveau : suivi serveur lorsque l’iPhone est verrouillé.** Le code iOS et le backend APNs sont inclus dans `server/`. L’activation exige un serveur HTTPS toujours actif, une clé APNs et une build signée avec Push Notifications. Le service n’est pas déployé ni configuré automatiquement. Voir [le guide serveur](server/README.md).
+
 Le bouton **Connecter Spotify** ouvre l’app Spotify pour obtenir le consentement et revient dans LyricLive. Le Client ID public est intégré. Le morceau en cours s’actualise environ toutes les trois secondes au premier plan.
 
 Les paroles sont recherchées dans **LRCLIB**, une API publique accessible sans clé. Si une version synchronisée existe, la ligne actuelle est surlignée et le texte défile dans l’app. Le bouton **Afficher les paroles dans la Live Activity** envoie cette même ligne à ActivityKit, avec la suivante. Lors d’un changement de morceau, le titre et les paroles sont remplacés. La couverture et la disponibilité varient selon les morceaux et les versions.
@@ -24,8 +26,8 @@ Le projet comprend trois cibles : l’app, l’extension WidgetKit et les tests 
 - Seul le titre/artiste/album/durée nécessaires à la recherche sont transmis à LRCLIB ; jamais les jetons Spotify. Cache mémoire limité à vingt morceaux, aucun stockage persistant de paroles.
 - `User-Agent` identifié, requêtes espacées, respect du `Retry-After` et ajout de jitter. Un bouton permet de rechercher à nouveau sans contourner le délai du service.
 - Aucun son de notification ni alertConfiguration ; les mises à jour identiques sont regroupées. L’affichage et la cadence sont gérés par ActivityKit et CarPlay.
-- **La synchronisation fonctionne au premier plan.** Lorsque LyricLive devient inactive ou passe en arrière-plan, son suivi s’arrête et la Live Activity indique « Suivi suspendu ». Une Live Activity ne donne pas de temps d’exécution continu à l’app. Aucune mise à jour continue dans une auto lorsque l’iPhone est verrouillé n’est promise.
-- Au retour, le défilement attend un nouvel échantillon Spotify. Le changement de titre recrée l’activité, car les attributs de titre sont immuables. L’arrêt ou l’absence de lecture termine l’activité suivie.
+- **Sans serveur**, la synchronisation fonctionne au premier plan et est suspendue hors de l’app. **Avec le mode serveur configuré**, Spotify et les lignes sont suivis par le backend ; APNs peut actualiser la Live Activity même si l’app ne tourne plus. La fréquence et la livraison sont gérées par Apple et ne sont pas garanties. Une Live Activity ne donne pas de temps d’exécution continu à l’app.
+- Au retour, le défilement attend un nouvel échantillon Spotify. En mode local, le changement de titre recrée l’activité. En mode serveur, titre et artiste font partie du contenu dynamique et changent sans recréer l’activité verrouillée. L’arrêt retire l’inscription ; la désactivation du mode serveur supprime sa session.
 
 ## Vérification
 
@@ -36,7 +38,7 @@ xcodebuild -project LyricLive.xcodeproj -scheme LyricLive \
 
 Dans Xcode, lancer **Product → Test** sur un simulateur iOS 26+ pour les tests `LyricsTimelineTests`. Voir `TESTS.md` pour les essais fonctionnels et matériels.
 
-Dans l’environnement Linux de développement, la syntaxe du projet et ses références ont été vérifiées et une requête LRCLIB réelle a réussi. **La compilation Swift, les tests XCTest et les essais de cette version sur iPhone/CarPlay n’ont pas été exécutés ici.** Le fonctionnement de la connexion Spotify a été confirmé par l’utilisateur pour la version précédente.
+Dans l’environnement Linux de développement, les tests du backend Node ont été exécutés avec succès. Les tests XCTest et la compilation iOS nécessitent un Mac. Les nouveaux envois APNs réels nécessitent les identifiants Apple ; ils ne sont pas validés par les services simulés. **La compilation Swift, les tests XCTest et les essais de cette version sur iPhone/CarPlay n’ont pas été exécutés ici.** Le fonctionnement de la connexion Spotify a été confirmé par l’utilisateur pour la version précédente.
 
 ## API et droits avant distribution
 
