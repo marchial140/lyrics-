@@ -24,7 +24,7 @@ struct SpotifyPlayback: Decodable {
     let currently_playing_type: String?
 }
 
-private struct SpotifyTokens: Codable {
+struct SpotifyTokens: Codable {
     let accessToken: String
     let refreshToken: String
     let expiresAt: Date
@@ -89,6 +89,7 @@ final class SpotifyClient: NSObject, ObservableObject {
     @Published private(set) var lastUpdated: Date?
     @Published private(set) var status = "Connecte Spotify pour voir ce que tu écoutes."
     @Published private(set) var foreground = false
+    @Published private(set) var backgroundBusy = false
     private var tokens: SpotifyTokens?
     private let appAuthentication = SpotifyAppAuthentication()
     private var polling: Task<Void, Never>?
@@ -152,6 +153,7 @@ final class SpotifyClient: NSObject, ObservableObject {
     }
 
     func disconnect() {
+        BackgroundSyncClient.shared.revokeOnDisconnect()
         generation = UUID()
         pollID = UUID()
         polling?.cancel(); polling = nil
@@ -169,7 +171,7 @@ final class SpotifyClient: NSObject, ObservableObject {
     func setForeground(_ active: Bool) {
         foreground = active
         appAuthentication.setForeground(active)
-        if active { startPolling() }
+        if active { BackgroundSyncClient.shared.retryPendingRevoke(); startPolling() }
         else {
             pollID = UUID()
             polling?.cancel(); polling = nil
@@ -177,7 +179,7 @@ final class SpotifyClient: NSObject, ObservableObject {
     }
 
     private func startPolling() {
-        guard foreground, connected, polling == nil else { return }
+        guard foreground, connected, !backgroundBusy, polling == nil else { return }
         let loginID = generation
         let currentPoll = UUID()
         pollID = currentPoll
@@ -197,6 +199,9 @@ final class SpotifyClient: NSObject, ObservableObject {
                     self.playback = nil
                     self.lastUpdated = nil
                     self.status = error.localizedDescription
+                    if case BackgroundSyncError.expired = error {
+                        self.disconnect(); self.status = BackgroundSyncError.expired.localizedDescription; return
+                    }
                     if case SpotifyError.expired = error {
                         self.disconnect()
                         self.status = SpotifyError.expired.localizedDescription
@@ -223,7 +228,43 @@ final class SpotifyClient: NSObject, ObservableObject {
         guard loginID == generation, poll == nil || poll == pollID else { throw CancellationError() }
     }
 
+    func enableBackground(serverURL: String) async {
+        guard connected, !backgroundBusy else { return }
+        backgroundBusy = true
+        defer { backgroundBusy = false; startPolling() }
+        polling?.cancel(); polling = nil
+        let expected = generation
+        do {
+            _ = try await validAccessToken(loginID: expected, force: false)
+            guard let tokens else { throw SpotifyError.expired }
+            try await BackgroundSyncClient.shared.enable(baseURL: serverURL, tokens: tokens)
+            try check(expected)
+            status = "Suivi serveur activé. Active ensuite la Live Activity."
+        } catch { status = error.localizedDescription }
+    }
+
+    func disableBackground() async {
+        guard !backgroundBusy else { return }
+        backgroundBusy = true
+        defer { backgroundBusy = false; startPolling() }
+        polling?.cancel(); polling = nil
+        let expected = generation
+        do {
+            let restored = try await BackgroundSyncClient.shared.stop()
+            try check(expected)
+            if let restored { try TokenVault.save(restored); tokens = restored }
+            status = "Suivi serveur arrêté."
+        } catch { status = "L’arrêt du serveur n’a pas été confirmé : " + error.localizedDescription }
+    }
+
     private func fetchPlayback(loginID: UUID, currentPoll: UUID) async throws {
+        if BackgroundSyncClient.shared.enabled {
+            let current = try await BackgroundSyncClient.shared.playback()
+            try check(loginID, poll: currentPoll)
+            playback = current; lastUpdated = Date()
+            status = current?.is_playing == true ? "Lecture suivie par le serveur" : "Serveur connecté · Lecture absente ou en pause"
+            return
+        }
         for attempt in 0...1 {
             let token = try await validAccessToken(loginID: loginID, force: attempt == 1)
             try check(loginID, poll: currentPoll)
