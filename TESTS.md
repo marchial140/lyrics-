@@ -32,3 +32,7 @@ Ces tests n’ont pas été exécutés dans l’environnement Linux dépourvu de
 | Grandes tailles de texte / VoiceOver | Commandes compréhensibles et textes accessibles |
 
 Consigner pour chaque essai : iPhone, version/build iOS, Xcode, titre et version du morceau, résultat, délais observés, mode premier plan/arrière-plan et réglages des activités en direct. Pour CarPlay : modèle et firmware du véhicule et connexion filaire/sans fil. Une mise à jour ActivityKit acceptée ne prouve pas une présentation immédiate dans le véhicule.
+
+## Mode serveur / écran verrouillé
+
+Exécuter `cd server && npm test`. Voir server/README.md pour les tests de livraison réelle. Vérifier les deux modes : sans serveur, suspension locale ; avec serveur activé et activité inscrite, observer les lignes écran verrouillé. Tester le changement de titre sans recréation, la rotation du jeton APNs, la désactivation des mises à jour fréquentes, l’arrêt, la déconnexion hors réseau et la reprise après redémarrage serveur. Aucun résultat APNs réel n’est annoncé comme réalisé.
