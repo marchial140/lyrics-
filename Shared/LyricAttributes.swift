@@ -8,10 +8,13 @@ struct LyricAttributes: ActivityAttributes {
         var lineNumber: Int
         var isPlaying: Bool
         var status: String? = nil
+        var trackTitle: String? = nil
+        var trackArtist: String? = nil
     }
     var title: String
     var artist: String
     var source: String? = nil
+    var serverManaged: Bool? = nil
 }
 
 enum DemoSong {
